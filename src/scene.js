@@ -209,11 +209,11 @@ export function createScene(host, onContextLost) {
   }
 
   function render() {
-    if (available) renderer.render(scene, camera);
+    if (available && !renderer.xr.isPresenting) renderer.render(scene, camera);
   }
   function resize() {
     const { width, height } = host.getBoundingClientRect();
-    if (!width || !height) return;
+    if (!width || !height || renderer.xr.isPresenting) return;
     if (!arMode) fitBoardCamera(camera, width / height);
     renderer.setSize(width, height);
     render();
@@ -229,6 +229,25 @@ export function createScene(host, onContextLost) {
   resize();
 
   return {
+    getXRContext() { return { renderer, scene, camera }; },
+    directionForScreen(direction) {
+      if (!arMode || !board.visible) return direction;
+      board.updateWorldMatrix(true, false);
+      const activeCamera = renderer.xr.isPresenting ? renderer.xr.getCamera() : camera;
+      const projectionCamera = activeCamera.cameras?.[0] ?? activeCamera;
+      const center = board.localToWorld(new THREE.Vector3(0, SNAKE_HEIGHT, 0)).project(projectionCamera);
+      const requested = { up: [0, 1], down: [0, -1], left: [-1, 0], right: [1, 0] }[direction];
+      let best = direction;
+      let bestDot = -Infinity;
+      for (const [name, [x, z]] of Object.entries({ up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] })) {
+        const projected = board.localToWorld(new THREE.Vector3(x, SNAKE_HEIGHT, z)).project(projectionCamera).sub(center);
+        const length = Math.hypot(projected.x, projected.y);
+        if (length < .00001) continue;
+        const dot = (projected.x * requested[0] + projected.y * requested[1]) / length;
+        if (dot > bestDot) { bestDot = dot; best = name; }
+      }
+      return best;
+    },
     enterAR() {
       arMode = true;
       scene.background = null;
@@ -275,7 +294,7 @@ export function createScene(host, onContextLost) {
       }
       moving = animate && sourceCells.length > 0;
       startTime = time;
-      duration = stepDuration * .8;
+      duration = stepDuration;
       head.rotation.y = HEAD_ROTATION[game.direction];
       food.visible = game.food !== null;
       if (game.food) food.position.set(game.food.x - CENTER, .06, game.food.y - CENTER);

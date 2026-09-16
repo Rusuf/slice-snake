@@ -45,6 +45,12 @@
         <div class="stage">
           <div id="canvas-host" tabindex="0" role="group" aria-label="Snake game board" aria-describedby="instructions"></div>
           <p id="ar-status" class="ar-status" role="status" hidden></p>
+          <div id="surface-tools" class="surface-tools" hidden>
+            <button id="board-smaller" type="button" aria-label="Make board smaller">−</button>
+            <output id="board-size" aria-label="Board width">24 cm</output>
+            <button id="board-larger" type="button" aria-label="Make board larger">+</button>
+            <button id="reposition" type="button" disabled>Reposition</button>
+          </div>
           <div id="overlay" class="overlay">
             <span class="eyebrow" id="overlay-tag">WARMING UP</span>
             <h2 id="overlay-title">Your next pizza break.</h2>
@@ -101,6 +107,13 @@
       <a href="./target.html" target="_blank" rel="noopener">GET THE AR DEMO CARD ↗</a>
       <span>SLICE SNAKE / PLAYABLE CONCEPT <i aria-hidden="true">✳</i></span>
     </footer>
+    <dialog id="ar-chooser" class="ar-chooser" aria-labelledby="ar-choice-title">
+      <h2 id="ar-choice-title">Where shall we play?</h2>
+      <p>No pizza box needed for a demo.</p>
+      <button id="surface-ar" type="button" class="ar-choice"><strong>Place on a surface</strong><span>Table, tile, or paper · supported Android phones</span></button>
+      <button id="image-ar" type="button" class="ar-choice"><strong>Track a printed card</strong><span>Use the included demo card</span></button>
+      <button id="ar-cancel" type="button" class="hand-button">Stay in 3D</button>
+    </dialog>
     <noscript><p class="no-script">Enable JavaScript to play Slice Snake.</p></noscript>
     <script type="module" src="./src/main.js"></script>
   </body>

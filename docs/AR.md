@@ -1,25 +1,27 @@
-# Android AR prototype
+# Android AR
 
-## Try it
+## Place on a surface
 
-1. Open `/target.html` on a computer and print the included image without cropping. It can also be shown on a second screen for a quick experiment.
-2. Lay the card flat with its top facing away from the player.
-3. Open the game over HTTPS in Chrome on an Android phone.
-4. Choose **Play in AR**, allow the rear camera, and point at the entire card.
-5. Once the card is found, press Play. Drag the joystick to steer. Keep the card visible.
+Requires Chrome on an ARCore-supported Android phone, Google Play Services for AR, and HTTPS. Choose **Play in AR → Place on a surface**, move slowly over a well-lit horizontal surface, then align the square guide. Adjust its width from 15–45 cm with −/+, choose **Place board**, then Play. **Reposition** pauses the game and lets you place it again.
 
-The default card is MindAR's example image, not Pizza Inn packaging. The real box image and its compiled tracking data must replace `public/assets/demo-target.png` and `demo-target.mind` together. The board is scaled to 92% of the target's shorter dimension. A square target printed on the lid gives a larger playing surface than this portrait test image.
+A table, tile, or paper square works for the demo; no box is needed. The guide is manually aligned, not automatic square-edge recognition. Featureless white paper, glare, and dim lighting may make detection harder: include textured surroundings while scanning. The board stays at its placed location; it does not follow paper moved afterward.
 
-## Implementation
+Surface mode uses WebXR hit testing and DOM overlay controls. Devices without these features can use card tracking or normal 3D. Placement uses a local reference space, not persistent anchors across sessions.
 
-The camera feed stays on the device. MindAR 1.2.5 image tracking is loaded lazily from vendored files when camera mode is requested. The existing Three.js renderer consumes the tracking matrix and a projection matrix adjusted for the video crop. The physical target supplies the base: the tabletop floor, thick chassis, and feet are hidden in AR. Native WebXR is not required.
+## Track a demo card
 
-Joystick directions are relative to the printed card. Four-way snapping, a dead zone, and diagonal hysteresis preserve predictable grid steering. The snake keeps moving when the thumb is released. Left-handed layout is available.
+Print `/target.html` without cropping, lay it flat, and choose **Play in AR → Track a demo card**. Allow the rear camera, point at the whole image, and press Play once detected. A second screen can also display the card for an experiment.
 
-Tracking loss pauses play and hides the unanchored board. Reacquisition requires an explicit resume. Leaving AR, hiding the tab, or exiting the page stops the camera stream and tracking worker. Camera denial, missing hardware, or setup failures return to normal 3D play. Restart/resume are disabled while the target is missing.
+This mode uses vendored MindAR 1.2.5 and does not require WebXR. The example image is not Pizza Inn packaging. For final box recognition, replace `public/assets/demo-target.png` and `demo-target.mind` together with the approved box artwork and compiled target. The board scales to 92% of the target’s shorter dimension.
 
-## Validation needed on Android hardware
+## Controls and tracking
 
-Automated checks cover joystick decisions and asset delivery. They do not establish tracking quality. Before presenting AR as complete, test camera permission, denied permission, printed-card detection, portrait/landscape alignment, loss/reacquisition, thumb gestures, repeated entry/exit, backgrounding, and camera-indicator shutdown on an actual Android phone. Test under normal indoor lighting with a printed target; glare and occlusion can change the result.
+The joystick snaps to four directions with a dead zone and diagonal hysteresis. Its latest valid direction replaces pending thumb turns; keyboard players keep a two-turn buffer. In AR, directions are mapped to the phone’s view. Releasing the joystick keeps the snake moving. Left-handed layout is available.
 
-The brand logo is sourced from Simbisa's official Pizza Inn page. The final packaging image and brand guidelines have not been supplied. Pass-and-play and shareable score challenges are available. Live networked multiplayer is not implemented.
+Tracking loss pauses play. Reacquisition requires an explicit resume. Ending AR releases its session or camera stream. Card mode also closes when the tab is hidden; surface mode pauses when interrupted by native XR visibility changes. Camera images are processed on the device.
+
+## Device validation
+
+Automated tests cover steering, placement geometry, and session cleanup; they cannot establish physical tracking quality. Before a demo, check permissions, surface detection, placement and resizing, orientation, tracking loss, thumb steering, and repeated entry/exit on the presenting phone. Confirm the camera indicator clears after exiting AR.
+
+Requirements: https://developers.google.com/ar/develop/webxr/requirements

@@ -270,3 +270,28 @@ footer i { color: var(--accent); font-style: normal; font-size: 15px; margin-lef
 @media (prefers-reduced-motion: reduce) {
   .joystick-thumb { box-shadow: 0 3px 0 #a81920; }
 }
+
+/* Direct thumb motion while dragging; a short return spring only on release. */
+.joystick-thumb { will-change: transform; }
+.joystick:not([data-dragging]) .joystick-thumb { transition: transform 120ms ease-out; }
+.ar-chooser { width: min(390px, calc(100% - 32px)); padding: 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); }
+.ar-chooser::backdrop { background: rgb(20 30 22 / 55%); }
+.ar-chooser h2 { font-size: 24px; }
+.ar-chooser > p { font-size: 13px; color: var(--muted); }
+.ar-choice { display: block; width: 100%; padding: 16px; margin-top: 10px; text-align: left; background: #fbf8ef; color: var(--ink); border: 1px solid #b9c5b2; border-radius: 7px; }
+.ar-choice strong { display: block; color: var(--brand-green); font-size: 14px; }
+.ar-choice span { display: block; margin-top: 5px; font-size: 11px; line-height: 1.5; }
+.surface-tools { position: absolute; z-index: 3; top: 52px; left: 10px; display: flex; gap: 4px; align-items: center; border-radius: 5px; padding: 3px; background: rgb(250 246 236 / 96%); }
+.surface-tools button { min-width: 44px; min-height: 44px; border: 0; border-radius: 3px; background: transparent; color: var(--brand-green); font-size: 19px; }
+.surface-tools output { min-width: 46px; text-align: center; font-size: 11px; }
+.surface-tools #reposition { padding-inline: 10px; font-size: 11px; }
+html:has(body.surface-mode), body.surface-mode, body:xr-overlay { background: transparent; }
+.surface-mode .masthead, .surface-mode .scorebar, .surface-mode .control-panel { background: rgb(250 246 236 / 95%); }
+.surface-mode .masthead { padding-inline: 12px; margin: 0; }
+.surface-mode .arcade { max-width: none; max-height: none; background: transparent; box-shadow: none; border: 0; }
+.surface-mode .stage { background: transparent; }
+.surface-mode #canvas-host canvas { visibility: hidden; }
+.surface-mode footer { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .joystick:not([data-dragging]) .joystick-thumb { transition: none; }
+}

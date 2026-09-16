@@ -2,7 +2,7 @@
 
 **One more bite.** Classic Snake, reimagined in 3D.
 
-A miniature tabletop board, a chunky green snake, and familiar button controls. Collect pizza, grow your snake, and beat your best score—all in the browser.
+A miniature tabletop board, a chunky green snake, and thumb-friendly joystick controls. Collect pizza, grow your snake, and beat your best score—all in the browser.
 
 ## Run
 
@@ -35,11 +35,11 @@ Switch the joystick side with **Left thumb**. Your best score stays in your brow
 
 Choose **2 players** to take turns on one phone. Both players use the same level; the higher score wins. After a run, **Challenge a friend** shares your score and difficulty as a link.
 
-## Play on a box
+## Play in AR
 
-Open the [AR demo card](https://slice-snake.vercel.app/target.html) on another screen or print it. On Android, open the game in Chrome, select **Play in AR**, and point at the card. Press Play once it is found.
+On a supported Android phone, open [Slice Snake](https://slice-snake.vercel.app/) in Chrome and choose **Play in AR → Place on a surface**. Scan a well-lit table, tile, or sheet of paper. Align the square guide, adjust its size, then choose **Place board** and Play. No pizza box or printed card needed.
 
-This camera demo tracks the included card; the final Pizza Inn box artwork is still needed for box recognition. [AR setup and device checks](docs/AR.md).
+Alternatively, choose **Track a demo card** with the [printed target](https://slice-snake.vercel.app/target.html). [Device requirements and AR setup](docs/AR.md).
 
 ## Development
 

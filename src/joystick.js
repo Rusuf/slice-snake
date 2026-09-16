@@ -1,5 +1,5 @@
-const DEAD_ZONE = 9;
-const CHANGE_BIAS = 1.2;
+const DEAD_ZONE = 6;
+const CHANGE_BIAS = 1.3;
 
 /** Snap a thumb vector to a cardinal direction; retain direction around diagonals. */
 export function joystickDirection(x, y, previous = null) {
@@ -17,6 +17,9 @@ export function bindJoystick(element, onDirection, signal) {
   let enabled = false;
   let pointer = null;
   let previous = null;
+  let bounds;
+  let originX = 0;
+  let originY = 0;
   const on = (event, handler) => element.addEventListener(event, handler, { signal });
 
   function reset() {
@@ -26,11 +29,11 @@ export function bindJoystick(element, onDirection, signal) {
     element.style.setProperty('--stick-x', '0px');
     element.style.setProperty('--stick-y', '0px');
     element.removeAttribute('data-direction');
+    element.removeAttribute('data-dragging');
   }
   function move(event) {
-    const bounds = element.getBoundingClientRect();
-    const x = event.clientX - bounds.left - bounds.width / 2;
-    const y = event.clientY - bounds.top - bounds.height / 2;
+    const x = event.clientX - originX;
+    const y = event.clientY - originY;
     const distance = Math.hypot(x, y);
     const radius = Math.max(0, bounds.width / 2 - 30);
     const scale = distance > radius ? radius / distance : 1;
@@ -46,6 +49,15 @@ export function bindJoystick(element, onDirection, signal) {
   on('pointerdown', event => {
     if (!enabled || event.button !== 0 || pointer !== null) return;
     event.preventDefault();
+    bounds = element.getBoundingClientRect();
+    originX = bounds.left + bounds.width / 2;
+    originY = bounds.top + bounds.height / 2;
+    // Grabbing the thumb must not jump toward an off-centre contact point.
+    if (Math.hypot(event.clientX - originX, event.clientY - originY) <= 28) {
+      originX = event.clientX;
+      originY = event.clientY;
+    }
+    element.dataset.dragging = 'true';
     pointer = event.pointerId;
     element.setPointerCapture(pointer);
     element.focus({ preventScroll: true });
@@ -57,6 +69,7 @@ export function bindJoystick(element, onDirection, signal) {
   }
   signal.addEventListener('abort', reset, { once: true });
   return {
+    getDirection() { return pointer === null ? null : previous; },
     setEnabled(value) {
       enabled = value;
       element.setAttribute('aria-disabled', String(!value));

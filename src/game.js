@@ -93,3 +93,13 @@ export function step(game, random = Math.random) {
   game.food = spawnFood(game.snake, random);
   if (game.food === null) game.status = 'won';
 }
+
+/** A held joystick represents current intent, not a history of flicks. */
+export function steer(game, direction) {
+  if (game.status !== 'playing' || !Object.hasOwn(DIRECTIONS, direction)) return false;
+  const [dx, dy] = DIRECTIONS[game.direction];
+  const [nextX, nextY] = DIRECTIONS[direction];
+  if (dx + nextX === 0 && dy + nextY === 0) return false;
+  game.queue = direction === game.direction ? [] : [direction];
+  return true;
+}

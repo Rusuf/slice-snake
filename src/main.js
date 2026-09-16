@@ -1,4 +1,4 @@
-import { createGame, step, turn } from './game.js';
+import { createGame, step, turn, steer } from './game.js';
 import { readBestScore, writeBestScore } from './storage.js';
 import { bindJoystick } from './joystick.js';
 import { readChallenge, challengeURL, createMatch, advanceMatch, finishMatchRound } from './social.js';
@@ -11,6 +11,8 @@ const ui = {
   speed: element('speed'), levelName: element('level-name'), levelHelp: element('level-help'), score: element('score'), best: element('best'), status: element('status'),
   joystick: element('joystick'), handedness: element('handedness'),
   arToggle: element('ar-toggle'), arStatus: element('ar-status'), arCard: element('ar-card-link'),
+  arChooser: element('ar-chooser'), surfaceButton: element('surface-ar'), imageButton: element('image-ar'), arCancel: element('ar-cancel'),
+  surfaceTools: element('surface-tools'), smaller: element('board-smaller'), larger: element('board-larger'), size: element('board-size'), reposition: element('reposition'),
   players: element('players'), share: element('share-score'), scoreLabel: element('score-label'), bestLabel: element('best-label'),
 };
 const KEYS = {
@@ -33,6 +35,10 @@ let arRequested = false;
 let arTracked = false;
 let arAbort;
 let arSession;
+let arKind = null;
+let arPlaced = false;
+let arCanPlace = false;
+let closingAR = false;
 let match = createMatch();
 const challenge = readChallenge(window.location.search);
 if (challenge) {
@@ -40,7 +46,7 @@ if (challenge) {
   ui.levelName.textContent = LEVELS.get(challenge.level);
   ui.bestLabel.textContent = 'TO BEAT';
 }
-const joystick = bindJoystick(ui.joystick, direction => turn(game, direction), listeners.signal);
+const joystick = bindJoystick(ui.joystick, direction => steer(game, scene?.directionForScreen(direction) ?? direction), listeners.signal);
 
 try { storage = window.localStorage; } catch { /* Storage is optional. */ }
 let best = readBestScore(storage);
@@ -81,9 +87,13 @@ function syncControls() {
   ui.levelHelp.textContent = fault ? 'Game unavailable' : sharedLevel ? 'Same level for both' : playing ? 'Pause to change' : 'Choose your speed';
   ui.restart.disabled = !scene || fault || game.status === 'ready' || (arRequested && !arTracked);
   joystick.setEnabled(playing);
-  ui.arToggle.disabled = !scene || fault;
-  ui.start.disabled = !scene || (!fault && arRequested && !arTracked);
-  ui.arCard.hidden = !arRequested;
+  ui.arToggle.disabled = !scene || fault || closingAR;
+  const waiting = arKind === 'surface' && !arPlaced ? !arCanPlace : !arTracked;
+  ui.start.disabled = !scene || (!fault && arRequested && waiting);
+  ui.arCard.hidden = !arRequested || arKind !== 'image';
+  ui.surfaceTools.hidden = !arRequested || arKind !== 'surface';
+  ui.reposition.disabled = !arPlaced;
+  ui.smaller.disabled = ui.larger.disabled = !arSession;
   ui.arStatus.hidden = !arRequested;
   ui.players.disabled = !scene || active || fault;
   ui.scoreLabel.textContent = match.enabled ? `PLAYER ${match.player}` : 'YOUR SCORE';
@@ -137,9 +147,11 @@ function tick(time) {
 
   while (elapsed >= interval && game.status === 'playing') {
     elapsed -= interval;
+    const held = joystick.getDirection();
+    if (held) steer(game, scene.directionForScreen(held));
     const previousScore = game.score;
     step(game);
-    scene.update(game, { animate: !reducedMotion.matches && game.status === 'playing', time, stepDuration: interval });
+    scene.update(game, { animate: !reducedMotion.matches && game.status === 'playing', time: time - elapsed, stepDuration: interval });
     syncScore();
     if (previousScore !== game.score) ui.status.textContent = `Bite collected. Score ${game.score}.`;
   }
@@ -147,12 +159,13 @@ function tick(time) {
   if (game.status !== 'playing') finish();
   else {
     scene.animate(time);
-    frame = requestAnimationFrame(tick);
+    if (arKind !== 'surface') frame = requestAnimationFrame(tick);
   }
 }
 
 function play({ restart = false } = {}) {
   if (fault) { window.location.reload(); return; }
+  if (arKind === 'surface' && !arPlaced) { arSession?.place(); return; }
   if (!scene || (arRequested && !arTracked) || game.status === 'playing' && !restart) return;
   stopClock();
   if (!restart && ['over', 'won'].includes(game.status)) advanceMatch(match);
@@ -165,7 +178,7 @@ function play({ restart = false } = {}) {
   syncControls();
   ui.status.textContent = 'Game running. Collect bites and avoid the edges and your tail.';
   ui.board.focus({ preventScroll: true });
-  frame = requestAnimationFrame(tick);
+  if (arKind !== 'surface') frame = requestAnimationFrame(tick);
 }
 
 function pause({ focus = true } = {}) {
@@ -242,64 +255,130 @@ function exitAR() {
   pause({ focus: false });
   arRequested = false;
   arTracked = false;
+  arPlaced = false;
+  arCanPlace = false;
+  arKind = null;
+  closingAR = true;
   arAbort?.abort();
-  arSession?.stop();
+  const closing = arSession?.stop();
   arSession = null;
-  document.body.classList.remove('camera-mode');
+  document.body.classList.remove('camera-mode', 'surface-mode');
   ui.arToggle.textContent = 'PLAY IN AR';
   ui.arToggle.setAttribute('aria-pressed', 'false');
   showReadyAction();
   syncControls();
+  Promise.resolve(closing).finally(() => { closingAR = false; syncControls(); });
 }
-on(ui.arToggle, 'click', async () => {
-  if (arRequested) { exitAR(); return; }
+function scanningSurface() {
+  showOverlay('SURFACE AR', 'Place your board.',
+    arCanPlace ? 'Align the square with your table or paper, then place the board.' : 'Move your phone slowly over a well-lit, flat surface.',
+    arCanPlace ? 'PLACE BOARD ↗' : 'FINDING SURFACE…');
+}
+on(ui.arToggle, 'click', () => {
+  if (arRequested) exitAR();
+  else {
+    pause({ focus: false });
+    ui.arChooser.showModal();
+  }
+});
+on(ui.arCancel, 'click', () => ui.arChooser.close());
+on(ui.surfaceButton, 'click', () => { ui.arChooser.close(); beginAR('surface'); });
+on(ui.imageButton, 'click', () => { ui.arChooser.close(); beginAR('image'); });
+on(ui.smaller, 'click', () => { if (arSession) ui.size.textContent = `${arSession.resize(-.03)} cm`; });
+on(ui.larger, 'click', () => { if (arSession) ui.size.textContent = `${arSession.resize(.03)} cm`; });
+on(ui.reposition, 'click', () => {
+  pause({ focus: false });
+  arPlaced = arTracked = arCanPlace = false;
+  arSession?.reposition();
+  scanningSurface();
+  syncControls();
+});
+
+async function beginAR(kind) {
   pause({ focus: false });
   arRequested = true;
-  arTracked = false;
+  arTracked = arPlaced = arCanPlace = false;
+  arKind = kind;
   arAbort = new AbortController();
   const currentAttempt = arAbort;
   document.body.classList.add('camera-mode');
+  document.body.classList.toggle('surface-mode', kind === 'surface');
   ui.arToggle.textContent = 'BACK TO 3D';
   ui.arToggle.setAttribute('aria-pressed', 'true');
-  showOverlay('AR DEMO', 'Find your demo card.', 'Print the tracking card, place it flat, and point your camera at it.', 'FINDING CARD…');
+  ui.size.textContent = '24 cm';
+  if (kind === 'surface') scanningSurface();
+  else showOverlay('AR DEMO', 'Find your demo card.', 'Print the tracking card, place it flat, and point your camera at it.', 'FINDING CARD…');
   syncControls();
+  const callbacks = {
+    view: scene, signal: currentAttempt.signal,
+    onStatus: text => { ui.arStatus.textContent = text; },
+    onError: error => {
+      if (currentAttempt.signal.aborted) return;
+      exitAR();
+      showOverlay('CAMERA STOPPED', 'Keep playing in 3D.', error.message, 'PLAY IN 3D ↗');
+    },
+    onTracking: found => {
+      if (currentAttempt.signal.aborted) return;
+      arTracked = found;
+      if (found) {
+        if (kind === 'surface') arPlaced = true;
+        showReadyAction();
+        ui.arStatus.textContent = kind === 'surface' ? 'Board placed · ready to play' : 'Card found · ready to play';
+      } else {
+        pause({ focus: false });
+        if (kind === 'surface' && !arPlaced) scanningSurface();
+        else showOverlay('GAME PAUSED', kind === 'surface' ? 'Hold your phone steady.' : 'Point back at the card.',
+          'Tracking was interrupted. Your game is paused safely.', 'WAITING FOR TRACKING…');
+        ui.arStatus.textContent = 'Tracking interrupted · game paused';
+      }
+      syncControls();
+    },
+  };
   try {
-    const { startARSession } = await import('./ar-session.js');
-    if (currentAttempt.signal.aborted) return;
-    arSession = await startARSession({
-      host: ui.board, view: scene, signal: currentAttempt.signal,
-      onStatus: text => { ui.arStatus.textContent = text; },
-      onError: error => {
-        if (currentAttempt.signal.aborted) return;
-        exitAR();
-        showOverlay('CAMERA STOPPED', 'Keep playing in 3D.', error.message, 'PLAY IN 3D ↗');
-      },
-      onTracking: found => {
-        if (currentAttempt.signal.aborted) return;
-        arTracked = found;
-        if (!found) {
-          pause({ focus: false });
-          showOverlay('AR DEMO', 'Point back at the card.', 'Keep the whole demo card in view. Your game is paused safely.', 'FINDING CARD…');
-          ui.arStatus.textContent = 'Card out of view · game paused';
-        } else {
-          showReadyAction();
-          ui.arStatus.textContent = 'Card found · press play when ready';
-        }
-        syncControls();
-      },
-    });
+    if (kind === 'surface') {
+      if (!navigator.xr?.requestSession) throw new Error('Surface AR needs an ARCore-supported Android phone with Google Play Services for AR. Card tracking and normal 3D are still available.');
+      // Request immediately on the button gesture, before downloading another module.
+      const sessionPromise = navigator.xr.requestSession('immersive-ar', {
+        requiredFeatures: ['hit-test', 'dom-overlay'], domOverlay: { root: document.body },
+      });
+      sessionPromise.catch(() => {});
+      const { startSurfaceSession } = await import('./surface-ar.js').catch(error => {
+        sessionPromise.then(session => session.end()).catch(() => {});
+        throw error;
+      });
+      if (currentAttempt.signal.aborted) { sessionPromise.then(session => session.end()).catch(() => {}); return; }
+      arSession = await startSurfaceSession({
+        ...callbacks, sessionPromise, overlay: document.body,
+        onFrame: time => tick(time),
+        onPlacement: ready => {
+          if (currentAttempt.signal.aborted || arPlaced) return;
+          arCanPlace = ready;
+          scanningSurface();
+          syncControls();
+        },
+        onEnd: () => { if (!currentAttempt.signal.aborted) exitAR(); },
+      });
+    } else {
+      const { startARSession } = await import('./ar-session.js');
+      if (currentAttempt.signal.aborted) return;
+      arSession = await startARSession({ ...callbacks, host: ui.board });
+    }
+    syncControls();
   } catch (error) {
     if (currentAttempt.signal.aborted) return;
     exitAR();
-    showOverlay('CAMERA UNAVAILABLE', 'Keep playing in 3D.', error.message || 'Camera mode could not start. Try Chrome on Android.', 'PLAY IN 3D ↗');
+    const message = error.name === 'NotSupportedError'
+      ? 'Surface AR is unavailable on this device. Try Card tracking, or continue in 3D.'
+      : error.message || 'Camera mode could not start. Try Chrome on Android.';
+    showOverlay('CAMERA UNAVAILABLE', 'Keep playing in 3D.', message, 'PLAY IN 3D ↗');
   }
-});
+}
 on(ui.arcade, 'keydown', event => {
   if (event.altKey || event.ctrlKey || event.metaKey || event.target.matches('select, input, textarea')) return;
   const direction = KEYS[event.key] ?? KEYS[event.key.toLowerCase()];
   if (direction) {
     event.preventDefault();
-    if (!event.repeat) turn(game, direction);
+    if (!event.repeat) turn(game, scene?.directionForScreen(direction) ?? direction);
   }
   if (event.code === 'Space' && !event.target.matches('button, a')) {
     event.preventDefault();
@@ -309,7 +388,8 @@ on(ui.arcade, 'keydown', event => {
 });
 on(document, 'visibilitychange', () => {
   if (document.hidden) {
-    if (arRequested) exitAR();
+    if (arKind === 'surface') pause({ focus: false });
+    else if (arRequested) exitAR();
     else pause({ focus: false });
   }
 });
