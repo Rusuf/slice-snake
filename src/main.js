@@ -16,6 +16,7 @@ const KEYS = {
 };
 const LEVELS = new Map([[190, 'EASY'], [140, 'CLASSIC'], [95, 'FAST']]);
 const listeners = new AbortController();
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let game = createGame();
 let scene;
 let storage;
@@ -106,13 +107,16 @@ function tick(time) {
     elapsed -= interval;
     const previousScore = game.score;
     step(game);
-    scene.update(game);
+    scene.update(game, { animate: !reducedMotion.matches && game.status === 'playing', time, stepDuration: interval });
     syncScore();
     if (previousScore !== game.score) ui.status.textContent = `Bite collected. Score ${game.score}.`;
   }
 
   if (game.status !== 'playing') finish();
-  else frame = requestAnimationFrame(tick);
+  else {
+    scene.animate(time);
+    frame = requestAnimationFrame(tick);
+  }
 }
 
 function play({ restart = false } = {}) {
@@ -135,6 +139,7 @@ function pause({ focus = true } = {}) {
   if (fault || game.status !== 'playing') return;
   game.status = 'paused';
   stopClock();
+  scene?.settle();
   syncControls();
   showOverlay('TAKE A BREATHER', 'Saving your slice.',
     'Your game is paused. Jump back in when you’re ready.', 'KEEP GOING ↗');
@@ -193,7 +198,17 @@ syncControls();
 try {
   const { createScene } = await import('./scene.js');
   scene = createScene(ui.board, failGraphics);
-  scene.update(game);
+  // A stationary preview shows the board's depth; starting still creates a fresh run.
+  scene.update({
+    ...game,
+    direction: 'right',
+    snake: [
+      { x: 10, y: 4 }, { x: 9, y: 4 }, { x: 8, y: 4 }, { x: 7, y: 4 },
+      { x: 6, y: 4 }, { x: 5, y: 4 }, { x: 4, y: 4 }, { x: 4, y: 5 },
+      { x: 4, y: 6 }, { x: 5, y: 6 }, { x: 6, y: 6 }, { x: 7, y: 6 },
+    ],
+    food: { x: 12, y: 5 },
+  });
   ui.start.disabled = false;
   showOverlay('HOT & READY', 'Feed your competitive side.',
     'Collect bites. Keep moving. Stay clear of the edges and your tail.', 'LET’S PLAY ↗');

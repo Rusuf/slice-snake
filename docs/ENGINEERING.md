@@ -11,19 +11,19 @@ This is a small client-only game. Native JavaScript modules and one runtime depe
 
 ## Input and timing
 
-The simulation moves by one cell per fixed interval. The renderer does not determine game speed. At most two legal direction changes are queued; legality is checked against the last accepted direction. This preserves quick corner inputs without allowing a reversal into the snake. Key-repeat events do not refill the buffer. The tail's departing cell is available on a non-growing move.
+The simulation moves by one cell per fixed interval. The renderer does not determine game speed; mesh positions interpolate between completed simulation states. At most two legal direction changes are queued; legality is checked against the last accepted direction. This preserves quick corner inputs without allowing a reversal into the snake. Key-repeat events do not refill the buffer. The tail's departing cell is available on a non-growing move.
 
-The controller cancels its animation callback when paused, finished, hidden, or unfocused. Resuming resets the elapsed clock, preventing a large catch-up jump. Rendering occurs after simulation changes and resize events, not continuously while the board is static. Movement deliberately retains the classic discrete-cell appearance.
+The controller cancels its animation callback when paused, finished, hidden, or unfocused. Resuming resets the elapsed clock, preventing a large catch-up jump. Rendering continues during the short transition between cells and stops once it completes. Pause settles that transition, and reduced-motion preferences use immediate cell updates. The simulation remains discrete and deterministic.
 
 ## Rendering and device cost
 
-The subtle LCD pixel matrix uses one instanced mesh rather than 256 separate draw calls. A second set of body joints connects the snake cells into a continuous pixel silhouette. Body instances and the head/eyes are reused for the entire session instead of being rebuilt per tick. Geometries and materials are shared, pixel ratio is capped at two, and a fixed orthographic camera keeps directions predictable. Resource cleanup disconnects the resize observer and releases GPU resources on final page exit.
+The cream checkerboard uses two instanced meshes rather than 256 separate tile draw calls. The snake's bevelled segments and lower connectors are reused, including during interpolation. Shared geometries and materials, capped pixel ratio, and a fixed perspective camera keep the scene bounded. The camera fits all corners of the board's 3D bounding box for the actual viewport aspect ratio. A single shadow-casting key light and a fill light reveal height, bevels, and the recessed surface. Resource cleanup disconnects the resize observer and releases GPU resources on final page exit.
 
 These are implementation choices, not measured performance guarantees. Frame rate, GPU memory use, and battery impact still need checks on actual target phones.
 
 ## Interaction and visual system
 
-The viewport layout prioritizes score, game board, and controls. The desktop introduction disappears on narrow or short screens; landscape controls move beside the board. Dynamic viewport units and safe-area insets account for mobile browser chrome. Extreme magnification retains a scroll fallback rather than clipping controls. Cream and tomato red keep the pizza-box identity around an LCD-green playfield. A shallow top-down camera, continuous dark pixel snake, and small food marker recall monochrome handset Snake without claiming a pixel-perfect replica of a specific handset. Local font stacks eliminate remote-font dependencies, though exact letterforms can differ by operating system.
+The viewport layout prioritizes score, game board, and controls. The desktop introduction disappears on narrow or short screens; landscape controls move beside the board. Dynamic viewport units and safe-area insets account for mobile browser chrome. Extreme magnification retains a scroll fallback rather than clipping controls. Cream and tomato red keep the pizza-box identity around a miniature tabletop playfield. The camera angle, terracotta chassis, cream rim, raised green snake, and pizza food emphasize physical depth while retaining classic grid controls. Local font stacks eliminate remote-font dependencies, though exact letterforms can differ by operating system.
 
 Directional buttons, pause, restart, and the difficulty selector have a minimum 44-pixel touch height. The controller transfers keyboard focus to the board when play starts and to the next action when a run ends. Direction buttons are disabled outside play. Semantic buttons, visible focus, a skip link, and a live status region support keyboard/assistive navigation. This visual reaction game has not undergone a complete accessibility audit and should not be described as fully screen-reader playable.
 
@@ -33,8 +33,8 @@ The server defaults to loopback. It serves only the entry HTML, first-level Java
 
 ## Verification record
 
-- 18 automated tests passed: game rules, storage behavior, and HTTP boundaries.
-- Syntax checks passed for all nine JavaScript modules, including scripts and tests.
+- 19 automated tests passed: game rules, camera framing, storage behavior, and HTTP boundaries.
+- Syntax checks passed for all twelve JavaScript modules, including scripts and tests.
 - Whitespace/diff checks passed.
 - Browser interaction, screenshots, WebGL recovery, zoom/layout, and real phone performance have not yet been verified. Browser installation requires approval in this workspace.
 - No production build or deployment was run. Deployment remains a manual workflow.

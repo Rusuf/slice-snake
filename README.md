@@ -2,7 +2,7 @@
 
 **One more bite.** Classic Snake, reimagined in 3D.
 
-An LCD-green board, a raised pixel snake, and familiar button controls. Collect bites, grow your snake, and beat your best score—all in the browser.
+A miniature tabletop board, a chunky green snake, and familiar button controls. Collect pizza, grow your snake, and beat your best score—all in the browser.
 
 ## Run
 
