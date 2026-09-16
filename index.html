@@ -16,15 +16,16 @@
     <a class="skip-link" href="#arcade">Skip to game</a>
     <header class="masthead">
       <a href="./" class="wordmark" aria-label="Slice Snake home">
-        <span class="brand-icon" aria-hidden="true">S</span>
-        SLICE SNAKE
+        <img class="partner-logo" src="./assets/pizza-inn-logo.png" alt="Pizza Inn" width="64" height="50">
+        <span class="brand-divider" aria-hidden="true"></span>
+        <span class="game-wordmark">SLICE SNAKE<small>ONE MORE BITE.</small></span>
       </a>
-      <span class="edition">FRESH OUT OF THE ARCADE <span>MADE FOR YOUR PIZZA BREAK</span></span>
+      <button id="ar-toggle" class="mode-button" type="button" disabled aria-pressed="false">PLAY IN AR</button>
     </header>
 
     <main>
       <section class="intro" aria-labelledby="page-title">
-        <div class="eyebrow"><span aria-hidden="true"></span> THE PIZZA BREAK JUST GOT BETTER</div>
+        <div class="eyebrow"><span aria-hidden="true"></span> YOUR PIZZA BREAK. UPGRADED.</div>
         <h1 id="page-title">One more <em>bite.</em></h1>
         <p>Old-school Snake. A fresh dimension.<br>Collect a bite. Grow your snake. Don't bite yourself.</p>
         <div class="intro-bottom" aria-hidden="true">
@@ -35,20 +36,22 @@
 
       <section class="arcade" id="arcade" aria-label="Slice Snake game" tabindex="-1">
         <div class="scorebar">
-          <div><span class="label">YOUR SCORE</span><strong id="score">000</strong></div>
-          <div class="best"><span class="label">PERSONAL BEST</span><strong id="best">000</strong></div>
+          <div><span class="label" id="score-label">YOUR SCORE</span><strong id="score">000</strong></div>
+          <div class="best"><span class="label" id="best-label">PERSONAL BEST</span><strong id="best">000</strong></div>
           <button id="restart" class="icon-button" type="button" disabled aria-label="Restart game" title="Restart game">↻</button>
           <button id="pause" class="icon-button" type="button" disabled aria-label="Pause game" title="Pause game">Ⅱ</button>
         </div>
 
         <div class="stage">
           <div id="canvas-host" tabindex="0" role="group" aria-label="Snake game board" aria-describedby="instructions"></div>
+          <p id="ar-status" class="ar-status" role="status" hidden></p>
           <div id="overlay" class="overlay">
             <span class="eyebrow" id="overlay-tag">WARMING UP</span>
             <h2 id="overlay-title">Your next pizza break.</h2>
             <p id="overlay-copy">Setting the table. Your game will be ready in a moment.</p>
             <button id="start" class="primary" type="button" disabled>LOADING…</button>
-            <span class="overlay-note">A CLASSIC. WITH A LITTLE DEPTH.</span>
+            <button id="share-score" class="share-button" type="button" hidden>Challenge a friend ↗</button>
+            <a id="ar-card-link" class="ar-card-link" href="./target.html" target="_blank" rel="noopener" hidden>Open the demo tracking card ↗</a>
           </div>
           <div class="stage-label" aria-hidden="true">16 × 16 · CLASSIC PLAY</div>
         </div>
@@ -73,14 +76,21 @@
               </div>
               <p id="level-help" class="level-help">Choose your speed</p>
             </fieldset>
-            <p id="instructions" class="sr-only">Move with arrow keys, WASD, or 2/4/6/8. Space pauses the game; Escape takes a break.</p>
+            <div class="setting-actions">
+              <button id="handedness" class="hand-button" type="button" aria-pressed="false">Left thumb</button>
+              <button id="players" class="hand-button" type="button" aria-pressed="false" title="Take turns on this phone">2 players</button>
+            </div>
+            <p id="instructions" class="sr-only">Drag the joystick to steer, or use arrow keys, WASD, or 2/4/6/8. Space pauses the game; Escape takes a break.</p>
           </div>
-          <div class="dpad" role="group" aria-label="Directional controls">
-            <button data-dir="up" type="button" aria-label="Move up" disabled>↑</button>
-            <button data-dir="left" type="button" aria-label="Move left" disabled>←</button>
-            <span class="dpad-center" aria-hidden="true">•</span>
-            <button data-dir="right" type="button" aria-label="Move right" disabled>→</button>
-            <button data-dir="down" type="button" aria-label="Move down" disabled>↓</button>
+          <div class="joystick-area">
+            <div id="joystick" class="joystick" role="group" tabindex="0" aria-label="Joystick: drag to steer; keyboard arrows also work" aria-disabled="true">
+              <span class="joystick-mark up" aria-hidden="true">↑</span>
+              <span class="joystick-mark right" aria-hidden="true">→</span>
+              <span class="joystick-mark down" aria-hidden="true">↓</span>
+              <span class="joystick-mark left" aria-hidden="true">←</span>
+              <span class="joystick-thumb" aria-hidden="true"></span>
+            </div>
+            <span class="joystick-caption">DRAG TO STEER</span>
           </div>
         </div>
         <p id="status" class="sr-only" role="status" aria-live="polite" aria-atomic="true">Loading the game.</p>
@@ -88,7 +98,7 @@
     </main>
 
     <footer>
-      <span>A BOX FULL OF POSSIBILITIES.</span>
+      <a href="./target.html" target="_blank" rel="noopener">GET THE AR DEMO CARD ↗</a>
       <span>SLICE SNAKE / PLAYABLE CONCEPT <i aria-hidden="true">✳</i></span>
     </footer>
     <noscript><p class="no-script">Enable JavaScript to play Slice Snake.</p></noscript>

@@ -8,6 +8,7 @@ const output = resolve(root, 'dist');
 await rm(output, { recursive: true, force: true });
 await mkdir(resolve(output, 'vendor'), { recursive: true });
 await cp(resolve(root, 'src'), resolve(output, 'src'), { recursive: true });
+await cp(resolve(root, 'public'), output, { recursive: true });
 
 const html = await readFile(resolve(root, 'index.html'), 'utf8');
 await writeFile(resolve(output, 'index.html'),

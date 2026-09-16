@@ -2,7 +2,7 @@
 
 ## Scope and boundaries
 
-This is a small client-only game. Native JavaScript modules and one runtime dependency keep installation and hosting straightforward. There is no framework, database, custom build pipeline, or account system because none is required by the prototype's behavior. JSDoc records the game-state model; it is documentation, not a claim of static type checking.
+This is a small client-only game. Native JavaScript modules and Three.js plus a lazily loaded, pinned MindAR runtime keep installation and hosting straightforward. There is no frontend framework, database, or account system because none is required by the prototype's behavior. JSDoc records the game-state model; it is documentation, not a claim of static type checking.
 
 - `game.js` owns grid rules. It mutates the supplied game state one tick at a time and accepts an injectable random source for repeatable tests. It does not access the DOM, storage, time, or Three.js.
 - `scene.js` owns meshes, materials, cameras, resizing, rendering, and disposal. It consumes game state but does not modify it.
@@ -25,19 +25,19 @@ These are implementation choices, not measured performance guarantees. Frame rat
 
 The viewport layout prioritizes score, game board, and controls. The desktop introduction disappears on narrow or short screens; landscape controls move beside the board. Dynamic viewport units and safe-area insets account for mobile browser chrome. Extreme magnification retains a scroll fallback rather than clipping controls. Cream and tomato red keep the pizza-box identity around a miniature tabletop playfield. The camera angle, terracotta chassis, cream rim, raised green snake, and pizza food emphasize physical depth while retaining classic grid controls. Local font stacks eliminate remote-font dependencies, though exact letterforms can differ by operating system.
 
-Directional buttons, pause, restart, and the difficulty selector have a minimum 44-pixel touch height. The controller transfers keyboard focus to the board when play starts and to the next action when a run ends. Direction buttons are disabled outside play. Semantic buttons, visible focus, a skip link, and a live status region support keyboard/assistive navigation. This visual reaction game has not undergone a complete accessibility audit and should not be described as fully screen-reader playable.
+The thumb joystick replaces the directional buttons, with four-way snapping and left-handed placement. Pause, restart, and level buttons retain 44-pixel touch height. The controller transfers keyboard focus to the board when play starts and to the next action when a run ends. The joystick is disabled outside play. Semantic buttons, visible focus, a skip link, and a live status region support keyboard/assistive navigation. This visual reaction game has not undergone a complete accessibility audit and should not be described as fully screen-reader playable.
 
 ## Development server
 
-The server defaults to loopback. It serves only the entry HTML, first-level JavaScript/CSS source assets, and the two required Three.js modules. Repository metadata, manifests, environment files, and symlinked assets are excluded. GET and HEAD are supported; other methods are rejected. The server is a development convenience, not a production hosting service.
+The server defaults to loopback. It serves the entry HTML, printable target page, first-level JavaScript/CSS source assets, two required Three.js modules, and allowlisted asset/runtime files under public/. Repository metadata, manifests, environment files, and symlinked assets are excluded. GET and HEAD are supported; other methods are rejected. The server is a development convenience, not a production hosting service.
 
 ## Verification record
 
-- 19 automated tests passed: game rules, camera framing, storage behavior, and HTTP boundaries.
-- Syntax checks passed for all twelve JavaScript modules, including scripts and tests.
+- Tests cover game rules, camera framing, joystick gestures, camera cancellation/denial, local social play, storage, and public HTTP assets.
+- Syntax checks cover application modules, scripts, and tests.
 - Whitespace/diff checks passed.
 - Browser interaction, screenshots, WebGL recovery, zoom/layout, and real phone performance have not yet been verified. Browser installation requires approval in this workspace.
-- No production build or deployment was run. Deployment remains a manual workflow.
+- Vercel handles production builds and deployment after push. No local production build is run.
 
 ## Browser acceptance checklist
 
@@ -50,4 +50,4 @@ The server defaults to loopback. It serves only the entry HTML, first-level Java
 
 ## Deliberate omissions
 
-No AR, reward redemption, analytics, remote leaderboard, deployment, or printable working QR is claimed. Actual box tracking needs a separate device/print experiment and acceptance criteria. The current box SVG is concept artwork with an explicitly labeled QR placeholder.
+The Android camera prototype uses the included MindAR test card and still needs physical-phone acceptance testing. Actual Pizza Inn box artwork has not been supplied. Pass-and-play and shared score links are client-side; there is no authoritative online leaderboard, reward redemption, analytics, or live networked multiplayer. See AR.md for the device checklist and ASSETS.md for provenance.

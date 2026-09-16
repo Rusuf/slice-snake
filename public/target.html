@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Slice Snake — AR demo card</title>
+  <style>
+    * { box-sizing: border-box; } body { margin: 0; padding: 24px; background: #f5f0e5; color: #242820; font: 15px/1.6 Arial, sans-serif; text-align: center; }
+    main { max-width: 650px; margin: auto; } h1 { font-size: 28px; margin: 12px 0; } .brand { width: 55px; height: auto; } .target { display: block; width: min(240px, 80vw); height: auto; margin: 24px auto; }
+    a, button { display: inline-block; padding: 12px 18px; color: white; background: #008c45; border: 0; border-radius: 4px; font: inherit; cursor: pointer; text-decoration: none; margin: 6px; } small { color: #606653; }
+    @media print { body { padding: 0; background: white; font-size: 11px; } nav, .brand { display: none; } h1 { font-size: 18px; margin: 0; } .target { width: 95mm; margin: 8mm auto; } @page { size: A4; margin: 12mm; } }
+  </style>
+</head>
+<body>
+  <main>
+    <img class="brand" src="./assets/pizza-inn-logo.png" alt="Pizza Inn">
+    <h1>Slice Snake · AR demo card</h1>
+    <p>Print this card and lay it flat on a table or box. Open Slice Snake on your Android phone, choose <strong>Play in AR</strong>, and keep the card in view.</p>
+    <nav><button onclick="window.print()">Print card</button><a href="./">Open game</a><a href="./assets/demo-target.png" download>Download image</a></nav>
+    <img class="target" src="./assets/demo-target.png" alt="MindAR image-tracking demo target; print this exact image without cropping">
+    <small>This is the included MindAR test target. It does not recognise an ordinary Pizza Inn box. Keep the top of the printed card facing away from you when playing. Final box artwork will replace this target.</small>
+  </main>
+</body>
+</html>

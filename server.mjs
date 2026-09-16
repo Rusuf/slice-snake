@@ -8,6 +8,10 @@ const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.mind': 'application/octet-stream',
+  '.txt': 'text/plain; charset=utf-8',
 };
 const THREE_FILES = new Set([
   '/node_modules/three/build/three.module.js',
@@ -15,7 +19,8 @@ const THREE_FILES = new Set([
 ]);
 
 function isPublicAsset(path) {
-  return path === '/index.html' || THREE_FILES.has(path) ||
+  return path === '/index.html' || path === '/target.html' ||
+    /^\/(assets|vendor)\/[a-zA-Z0-9][a-zA-Z0-9._-]*\.(png|svg|mind|js|txt)$/.test(path) || THREE_FILES.has(path) ||
     /^\/src\/[a-zA-Z0-9_-]+\.(js|css)$/.test(path);
 }
 
@@ -48,7 +53,8 @@ export function createDevServer(root = PROJECT_ROOT) {
     }
 
     try {
-      const file = resolve(root, '.' + path);
+      const publicAsset = path === '/target.html' || path.startsWith('/assets/') || path.startsWith('/vendor/');
+      const file = resolve(root, publicAsset ? 'public' : '.', '.' + path);
       // Refuse symlinks so an asset cannot expose another local file.
       if (await realpath(file) !== file) {
         response.writeHead(404);

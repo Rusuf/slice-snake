@@ -54,3 +54,25 @@ test('malformed percent encoding is a bad request', async () => {
   assert.equal(response.status, 400);
   await response.text();
 });
+
+test('serves the branded assets, printable target, and pinned AR runtime', async () => {
+  for (const [path, type] of [
+    ['/target.html', 'text/html'],
+    ['/assets/pizza-inn-logo.png', 'image/png'],
+    ['/assets/demo-target.png', 'image/png'],
+    ['/assets/demo-target.mind', 'application/octet-stream'],
+    ['/vendor/mindar-image.prod.js', 'text/javascript'],
+    ['/vendor/controller-mGt1s8dJ.js', 'text/javascript'],
+    ['/vendor/ui-fBadYuor.js', 'text/javascript'],
+  ]) {
+    const response = await fetch(origin + path);
+    assert.equal(response.status, 200, path);
+    assert.ok(response.headers.get('content-type').startsWith(type), path);
+    assert.ok((await response.arrayBuffer()).byteLength > 0, path);
+  }
+  for (const path of ['/assets/%2e%2e%2f.env', '/vendor/.env', '/public/vendor/mindar-image.prod.js']) {
+    const response = await fetch(origin + path);
+    assert.equal(response.status, 404, path);
+    await response.text();
+  }
+});

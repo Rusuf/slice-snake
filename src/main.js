@@ -1,5 +1,7 @@
 import { createGame, step, turn } from './game.js';
 import { readBestScore, writeBestScore } from './storage.js';
+import { bindJoystick } from './joystick.js';
+import { readChallenge, challengeURL, createMatch, advanceMatch, finishMatchRound } from './social.js';
 
 const element = id => document.getElementById(id);
 const ui = {
@@ -7,7 +9,9 @@ const ui = {
   tag: element('overlay-tag'), title: element('overlay-title'), copy: element('overlay-copy'),
   start: element('start'), pause: element('pause'), restart: element('restart'),
   speed: element('speed'), levelName: element('level-name'), levelHelp: element('level-help'), score: element('score'), best: element('best'), status: element('status'),
-  directions: [...document.querySelectorAll('[data-dir]')],
+  joystick: element('joystick'), handedness: element('handedness'),
+  arToggle: element('ar-toggle'), arStatus: element('ar-status'), arCard: element('ar-card-link'),
+  players: element('players'), share: element('share-score'), scoreLabel: element('score-label'), bestLabel: element('best-label'),
 };
 const KEYS = {
   ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
@@ -25,11 +29,23 @@ let frame = null;
 let previousTime = null;
 let elapsed = 0;
 let interval = 140;
+let arRequested = false;
+let arTracked = false;
+let arAbort;
+let arSession;
+let match = createMatch();
+const challenge = readChallenge(window.location.search);
+if (challenge) {
+  ui.speed.querySelector(`input[value="${challenge.level}"]`).checked = true;
+  ui.levelName.textContent = LEVELS.get(challenge.level);
+  ui.bestLabel.textContent = 'TO BEAT';
+}
+const joystick = bindJoystick(ui.joystick, direction => turn(game, direction), listeners.signal);
 
 try { storage = window.localStorage; } catch { /* Storage is optional. */ }
 let best = readBestScore(storage);
 const formatScore = value => String(value).padStart(3, '0');
-ui.best.textContent = formatScore(best);
+ui.best.textContent = formatScore(challenge?.score ?? best);
 
 function on(target, event, handler) {
   target.addEventListener(event, handler, { signal: listeners.signal });
@@ -46,7 +62,7 @@ function syncScore() {
   ui.score.textContent = formatScore(game.score);
   if (game.score > best) {
     best = game.score;
-    ui.best.textContent = formatScore(best);
+    ui.best.textContent = formatScore(challenge?.score ?? best);
     writeBestScore(storage, best);
   }
 }
@@ -55,15 +71,23 @@ function syncControls() {
   const playing = game.status === 'playing' && !fault;
   const active = ['playing', 'paused'].includes(game.status) && !fault;
   ui.overlay.hidden = playing;
-  ui.pause.disabled = !active;
+  ui.pause.disabled = !active || (arRequested && !arTracked);
   ui.pause.textContent = game.status === 'paused' ? '▷' : 'Ⅱ';
   const pauseLabel = game.status === 'paused' ? 'Resume game' : 'Pause game';
   ui.pause.setAttribute('aria-label', pauseLabel);
   ui.pause.title = pauseLabel;
-  ui.speed.disabled = playing || fault;
-  ui.levelHelp.textContent = fault ? 'Game unavailable' : playing ? 'Pause to change' : 'Choose your speed';
-  ui.restart.disabled = !scene || fault || game.status === 'ready';
-  ui.directions.forEach(button => { button.disabled = !playing; });
+  const sharedLevel = match.enabled && match.scores.length === 1;
+  ui.speed.disabled = playing || fault || sharedLevel;
+  ui.levelHelp.textContent = fault ? 'Game unavailable' : sharedLevel ? 'Same level for both' : playing ? 'Pause to change' : 'Choose your speed';
+  ui.restart.disabled = !scene || fault || game.status === 'ready' || (arRequested && !arTracked);
+  joystick.setEnabled(playing);
+  ui.arToggle.disabled = !scene || fault;
+  ui.start.disabled = !scene || (!fault && arRequested && !arTracked);
+  ui.arCard.hidden = !arRequested;
+  ui.arStatus.hidden = !arRequested;
+  ui.players.disabled = !scene || active || fault;
+  ui.scoreLabel.textContent = match.enabled ? `PLAYER ${match.player}` : 'YOUR SCORE';
+  ui.share.hidden = !['over', 'won'].includes(game.status) || game.score === 0;
 }
 
 function showOverlay(tag, title, copy, action) {
@@ -76,6 +100,8 @@ function showOverlay(tag, title, copy, action) {
 
 function failGraphics() {
   fault = true;
+  arAbort?.abort();
+  arRequested = false;
   stopClock();
   if (game.status === 'playing') game.status = 'paused';
   syncControls();
@@ -87,6 +113,7 @@ function failGraphics() {
 
 function finish() {
   stopClock();
+  const round = finishMatchRound(match, game.score);
   syncControls();
   showOverlay(
     game.status === 'won' ? 'CLEAN PLATE CLUB' : 'THAT’S A WRAP',
@@ -94,6 +121,11 @@ function finish() {
     `You scored ${game.score} points. ${game.status === 'won' ? 'You filled the whole board!' : 'There’s always room for one more go.'}`,
     'PLAY AGAIN ↗',
   );
+  if (round) showOverlay('2 PLAYERS', round.title, round.copy, round.action);
+  else if (challenge && game.score > challenge.score) {
+    showOverlay('CHALLENGE BEATEN', 'That’s how it’s done.', `You scored ${game.score} and beat the ${challenge.score}-point challenge.`, 'PLAY AGAIN ↗');
+  }
+  ui.share.textContent = 'Challenge a friend ↗';
   ui.start.focus({ preventScroll: true });
 }
 
@@ -121,8 +153,9 @@ function tick(time) {
 
 function play({ restart = false } = {}) {
   if (fault) { window.location.reload(); return; }
-  if (!scene || game.status === 'playing' && !restart) return;
+  if (!scene || (arRequested && !arTracked) || game.status === 'playing' && !restart) return;
   stopClock();
+  if (!restart && ['over', 'won'].includes(game.status)) advanceMatch(match);
   if (restart || game.status !== 'paused') game = createGame();
   const selected = Number(ui.speed.querySelector('input:checked')?.value);
   interval = LEVELS.has(selected) ? selected : 140;
@@ -158,17 +191,109 @@ on(ui.speed, 'change', () => {
   const selected = Number(ui.speed.querySelector('input:checked')?.value);
   ui.levelName.textContent = LEVELS.get(selected) ?? 'CLASSIC';
 });
-for (const button of ui.directions) {
-  on(button, 'pointerdown', event => {
-    if (event.button !== 0 || button.disabled) return;
-    event.preventDefault();
-    turn(game, button.dataset.dir);
-  });
-  // Keyboard/assistive activation has no pointerdown; avoid a second turn for taps.
-  on(button, 'click', event => {
-    if (event.detail === 0) turn(game, button.dataset.dir);
-  });
+on(ui.handedness, 'click', () => {
+  const left = ui.handedness.getAttribute('aria-pressed') !== 'true';
+  ui.handedness.setAttribute('aria-pressed', String(left));
+  ui.handedness.textContent = left ? 'Right thumb' : 'Left thumb';
+  ui.arcade.classList.toggle('left-handed', left);
+});
+
+on(ui.players, 'click', () => {
+  match = createMatch(!match.enabled);
+  ui.players.setAttribute('aria-pressed', String(match.enabled));
+  ui.players.textContent = match.enabled ? 'Solo mode' : '2 players';
+  game = createGame();
+  scene.update(game);
+  syncScore();
+  showReadyAction();
+  syncControls();
+});
+on(ui.share, 'click', async () => {
+  const url = challengeURL(window.location.href, game.score, interval);
+  const text = `I scored ${game.score} in Slice Snake. Can you beat it?`;
+  try {
+    if (navigator.share) await navigator.share({ title: 'Slice Snake', text, url });
+    else {
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      ui.share.textContent = 'Challenge link copied ✓';
+    }
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      ui.share.textContent = 'Copy link';
+      window.prompt('Copy your challenge link:', url);
+    }
+  }
+});
+
+function showReadyAction() {
+  if (game.status === 'paused') {
+    showOverlay('READY', 'Ready when you are.', 'Your game is paused. Continue when you’re ready.', 'KEEP GOING ↗');
+  } else if (game.status === 'over' || game.status === 'won') {
+    const round = finishMatchRound(match, game.score);
+    if (round) { showOverlay('2 PLAYERS', round.title, round.copy, round.action); return; }
+    showOverlay('ONE MORE GO', 'Hungry for another?', `You scored ${game.score} points. Ready for another round?`, 'PLAY AGAIN ↗');
+  } else if (match.enabled) {
+    showOverlay('2 PLAYERS', 'Player 1, you’re up.', 'Take turns on this phone. Highest score wins.', 'PLAYER 1 · PLAY ↗');
+  } else {
+    showOverlay('HOT & READY', 'Feed your competitive side.', 'Drag the joystick to collect pizza. Avoid the edges and your tail.', 'LET’S PLAY ↗');
+  }
 }
+function exitAR() {
+  pause({ focus: false });
+  arRequested = false;
+  arTracked = false;
+  arAbort?.abort();
+  arSession?.stop();
+  arSession = null;
+  document.body.classList.remove('camera-mode');
+  ui.arToggle.textContent = 'PLAY IN AR';
+  ui.arToggle.setAttribute('aria-pressed', 'false');
+  showReadyAction();
+  syncControls();
+}
+on(ui.arToggle, 'click', async () => {
+  if (arRequested) { exitAR(); return; }
+  pause({ focus: false });
+  arRequested = true;
+  arTracked = false;
+  arAbort = new AbortController();
+  const currentAttempt = arAbort;
+  document.body.classList.add('camera-mode');
+  ui.arToggle.textContent = 'BACK TO 3D';
+  ui.arToggle.setAttribute('aria-pressed', 'true');
+  showOverlay('AR DEMO', 'Find your demo card.', 'Print the tracking card, place it flat, and point your camera at it.', 'FINDING CARD…');
+  syncControls();
+  try {
+    const { startARSession } = await import('./ar-session.js');
+    if (currentAttempt.signal.aborted) return;
+    arSession = await startARSession({
+      host: ui.board, view: scene, signal: currentAttempt.signal,
+      onStatus: text => { ui.arStatus.textContent = text; },
+      onError: error => {
+        if (currentAttempt.signal.aborted) return;
+        exitAR();
+        showOverlay('CAMERA STOPPED', 'Keep playing in 3D.', error.message, 'PLAY IN 3D ↗');
+      },
+      onTracking: found => {
+        if (currentAttempt.signal.aborted) return;
+        arTracked = found;
+        if (!found) {
+          pause({ focus: false });
+          showOverlay('AR DEMO', 'Point back at the card.', 'Keep the whole demo card in view. Your game is paused safely.', 'FINDING CARD…');
+          ui.arStatus.textContent = 'Card out of view · game paused';
+        } else {
+          showReadyAction();
+          ui.arStatus.textContent = 'Card found · press play when ready';
+        }
+        syncControls();
+      },
+    });
+  } catch (error) {
+    if (currentAttempt.signal.aborted) return;
+    exitAR();
+    showOverlay('CAMERA UNAVAILABLE', 'Keep playing in 3D.', error.message || 'Camera mode could not start. Try Chrome on Android.', 'PLAY IN 3D ↗');
+  }
+});
 on(ui.arcade, 'keydown', event => {
   if (event.altKey || event.ctrlKey || event.metaKey || event.target.matches('select, input, textarea')) return;
   const direction = KEYS[event.key] ?? KEYS[event.key.toLowerCase()];
@@ -182,9 +307,15 @@ on(ui.arcade, 'keydown', event => {
   }
   if (event.key === 'Escape') pause();
 });
-on(document, 'visibilitychange', () => { if (document.hidden) pause({ focus: false }); });
+on(document, 'visibilitychange', () => {
+  if (document.hidden) {
+    if (arRequested) exitAR();
+    else pause({ focus: false });
+  }
+});
 on(window, 'blur', () => pause({ focus: false }));
 on(window, 'pagehide', event => {
+  if (arRequested) exitAR();
   pause({ focus: false });
   if (!event.persisted) {
     stopClock();

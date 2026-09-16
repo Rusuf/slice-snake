@@ -8,7 +8,7 @@ const HEAD_ROTATION = { up: 0, right: -Math.PI / 2, down: Math.PI, left: Math.PI
 
 /** Owns GPU resources and visual interpolation, never game rules or input. */
 export function createScene(host, onContextLost) {
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -20,6 +20,10 @@ export function createScene(host, onContextLost) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#ece4d5');
   const camera = new THREE.PerspectiveCamera(38, 1, .1, 120);
+  const board = new THREE.Group();
+  scene.add(board);
+  const normalOnly = [];
+  let arMode = false;
   const geometries = new Set();
   const materials = new Set();
   const geometry = value => { geometries.add(value); return value; };
@@ -80,20 +84,21 @@ export function createScene(host, onContextLost) {
   const terracotta = material('#b44b32');
   const cream = material('#eddbb6');
   const edge = material('#693d2c');
-  scene.add(mesh(bevelBox(18.4, .94, 18.4, .16), terracotta, [0, -.75, 0]));
-  scene.add(mesh(bevelBox(18.15, .16, 18.15, .05), edge, [0, -1.24, 0]));
-  scene.add(mesh(box(16.5, .22, 16.5), cream, [0, -.13, 0]));
+  normalOnly.push(mesh(bevelBox(18.4, .94, 18.4, .16), terracotta, [0, -.75, 0]));
+  normalOnly.push(mesh(bevelBox(18.15, .16, 18.15, .05), edge, [0, -1.24, 0]));
+  board.add(mesh(box(16.5, .22, 16.5), cream, [0, -.13, 0]));
   const footShape = bevelBox(1.5, .18, 1.5, .04);
   for (const x of [-7.5, 7.5]) {
-    for (const z of [-7.5, 7.5]) scene.add(mesh(footShape, edge, [x, -1.35, z]));
+    for (const z of [-7.5, 7.5]) normalOnly.push(mesh(footShape, edge, [x, -1.35, z]));
   }
 
   // The inner rim starts just outside the collision boundary at +/- 8 cells.
+  normalOnly.forEach(object => board.add(object));
   const horizontalRim = bevelBox(18.4, .62, 1.1, .09);
   const verticalRim = bevelBox(1.1, .62, 16.2, .09);
   for (const side of [-1, 1]) {
-    scene.add(mesh(horizontalRim, cream, [0, .13, side * 8.65]));
-    scene.add(mesh(verticalRim, cream, [side * 8.65, .13, 0]));
+    board.add(mesh(horizontalRim, cream, [0, .13, side * 8.65]));
+    board.add(mesh(verticalRim, cream, [side * 8.65, .13, 0]));
   }
 
   const matrix = new THREE.Matrix4();
@@ -108,7 +113,7 @@ export function createScene(host, onContextLost) {
     }
     tiles.receiveShadow = true;
     tiles.instanceMatrix.needsUpdate = true;
-    scene.add(tiles);
+    board.add(tiles);
   }
 
   const green = material('#388454', .4);
@@ -120,7 +125,7 @@ export function createScene(host, onContextLost) {
   body.castShadow = true;
   body.receiveShadow = true;
   body.count = 0;
-  scene.add(body);
+  board.add(body);
 
   // Lower connectors keep the silhouette continuous while individual blocks retain depth.
   const joints = new THREE.InstancedMesh(box(.65, .58, 1), green, SIZE * SIZE - 1);
@@ -129,7 +134,7 @@ export function createScene(host, onContextLost) {
   joints.castShadow = true;
   joints.receiveShadow = true;
   joints.count = 0;
-  scene.add(joints);
+  board.add(joints);
 
   const head = mesh(bevelBox(.94, .84, .94, .10), darkGreen);
   const eyeShape = bevelBox(.22, .06, .25, .018);
@@ -140,7 +145,7 @@ export function createScene(host, onContextLost) {
     head.add(mesh(eyeShape, ivory, [x, .425, -.20]));
     head.add(mesh(pupilShape, black, [x, .465, -.245]));
   }
-  scene.add(head);
+  board.add(head);
 
   const food = new THREE.Group();
   const triangle = new THREE.Shape();
@@ -161,7 +166,7 @@ export function createScene(host, onContextLost) {
     food.add(mesh(toppingShape, tomato, [x, .205, z]));
   }
   food.rotation.y = -.2;
-  scene.add(food);
+  board.add(food);
 
   let available = true;
   let targetCells = [];
@@ -209,7 +214,7 @@ export function createScene(host, onContextLost) {
   function resize() {
     const { width, height } = host.getBoundingClientRect();
     if (!width || !height) return;
-    fitBoardCamera(camera, width / height);
+    if (!arMode) fitBoardCamera(camera, width / height);
     renderer.setSize(width, height);
     render();
   }
@@ -224,6 +229,44 @@ export function createScene(host, onContextLost) {
   resize();
 
   return {
+    enterAR() {
+      arMode = true;
+      scene.background = null;
+      renderer.setClearColor(0x000000, 0);
+      renderer.shadowMap.enabled = false;
+      tabletop.visible = false;
+      normalOnly.forEach(object => { object.visible = false; });
+      board.matrixAutoUpdate = false;
+      board.visible = false;
+      camera.position.set(0, 0, 0);
+      camera.quaternion.identity();
+      camera.updateMatrixWorld();
+    },
+    setARProjection(elements) {
+      camera.projectionMatrix.fromArray(elements);
+      camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+    },
+    trackAR(matrix, visible) {
+      if (!arMode) return;
+      board.visible = visible;
+      if (matrix) board.matrix.copy(matrix);
+      board.matrixWorldNeedsUpdate = true;
+    },
+    renderAR() { if (arMode) render(); },
+    exitAR() {
+      arMode = false;
+      scene.background = new THREE.Color('#ece4d5');
+      renderer.shadowMap.enabled = true;
+      tabletop.visible = true;
+      normalOnly.forEach(object => { object.visible = true; });
+      board.matrixAutoUpdate = true;
+      board.position.set(0, 0, 0);
+      board.quaternion.identity();
+      board.scale.set(1, 1, 1);
+      board.updateMatrix();
+      board.visible = true;
+      resize();
+    },
     update(game, { animate = false, time = 0, stepDuration = 140 } = {}) {
       sourceCells = targetCells;
       targetCells = game.snake.map(cell => ({ ...cell }));
