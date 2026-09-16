@@ -12,6 +12,7 @@ const ui = {
 const KEYS = {
   ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
   w: 'up', s: 'down', a: 'left', d: 'right',
+  '2': 'up', '8': 'down', '4': 'left', '6': 'right',
 };
 const SPEEDS = new Set([190, 140, 95]);
 const listeners = new AbortController();
@@ -104,7 +105,7 @@ function tick(time) {
     step(game);
     scene.update(game);
     syncScore();
-    if (previousScore !== game.score) ui.status.textContent = `Pizza collected. Score ${game.score}.`;
+    if (previousScore !== game.score) ui.status.textContent = `Bite collected. Score ${game.score}.`;
   }
 
   if (game.status !== 'playing') finish();
@@ -122,7 +123,7 @@ function play({ restart = false } = {}) {
   scene.update(game);
   syncScore();
   syncControls();
-  ui.status.textContent = 'Game running. Collect pizza and avoid the edges and your tail.';
+  ui.status.textContent = 'Game running. Collect bites and avoid the edges and your tail.';
   ui.board.focus({ preventScroll: true });
   frame = requestAnimationFrame(tick);
 }
@@ -188,7 +189,7 @@ try {
   scene.update(game);
   ui.start.disabled = false;
   showOverlay('HOT & READY', 'Feed your competitive side.',
-    'Collect pizza. Keep moving. Stay clear of the edges and your tail.', 'LET’S PLAY ↗');
+    'Collect bites. Keep moving. Stay clear of the edges and your tail.', 'LET’S PLAY ↗');
   syncControls();
 } catch (error) {
   console.error('Unable to initialize the 3D scene:', error);

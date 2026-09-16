@@ -14,9 +14,9 @@ export function createScene(host, onContextLost) {
   host.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#e6e8d9');
+  scene.background = new THREE.Color('#afbd80');
   const camera = new THREE.OrthographicCamera(-12, 12, 10, -10, .1, 100);
-  camera.position.set(0, 22, 19);
+  camera.position.set(0, 28, 12);
   camera.lookAt(0, 0, 0);
 
   const geometries = new Set();
@@ -36,8 +36,8 @@ export function createScene(host, onContextLost) {
   };
   const box = (width, height, depth) => geometry(new THREE.BoxGeometry(width, height, depth));
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x718365, 2.7));
-  const sun = new THREE.DirectionalLight(0xfff5d9, 3.3);
+  scene.add(new THREE.HemisphereLight(0xeaf0d4, 0x67724d, 2.2));
+  const sun = new THREE.DirectionalLight(0xf5f5da, 2.2);
   sun.position.set(-7, 16, 8);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
@@ -45,63 +45,61 @@ export function createScene(host, onContextLost) {
   sun.shadow.bias = -.001;
   scene.add(sun);
 
-  scene.add(mesh(box(17.4, .65, 17.4), material('#496743'), [0, -.55, 0]));
-  scene.add(mesh(box(16.6, .18, 16.6), material('#d7dfbc'), [0, -.12, 0]));
+  const ink = material('#263a24');
+  const lcd = material('#a9b977');
+  const rim = material('#657649');
+  scene.add(mesh(box(17.2, .36, 17.2), rim, [0, -.35, 0]));
+  scene.add(mesh(box(16.6, .14, 16.6), lcd, [0, -.10, 0]));
 
-  // Two instanced meshes replace 256 individual tile draw calls.
-  const tileGeometry = box(.97, .025, .97);
+  // A faint pixel matrix gives alignment cues without the old checkerboard noise.
   const matrix = new THREE.Matrix4();
-  for (const [parity, color] of ['#ced8b2', '#dbe2c3'].entries()) {
-    const tiles = new THREE.InstancedMesh(tileGeometry, material(color), SIZE * SIZE / 2);
-    let index = 0;
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        if ((x + y) % 2 === parity) {
-          tiles.setMatrixAt(index++, matrix.makeTranslation(x - CENTER, 0, y - CENTER));
-        }
-      }
+  const tiles = new THREE.InstancedMesh(box(.986, .012, .986), material('#aebd7d'), SIZE * SIZE);
+  for (let y = 0; y < SIZE; y++) {
+    for (let x = 0; x < SIZE; x++) {
+      tiles.setMatrixAt(y * SIZE + x, matrix.makeTranslation(x - CENTER, 0, y - CENTER));
     }
-    tiles.receiveShadow = true;
-    tiles.instanceMatrix.needsUpdate = true;
-    scene.add(tiles);
+  }
+  tiles.receiveShadow = true;
+  tiles.instanceMatrix.needsUpdate = true;
+  scene.add(tiles);
+
+  // The visible boundary matches the rules: the playable cells end at +/- 8.
+  for (const side of [-1, 1]) {
+    scene.add(mesh(box(16.3, .10, .13), ink, [0, .015, side * 8.12]));
+    scene.add(mesh(box(.13, .10, 16.3), ink, [side * 8.12, .015, 0]));
   }
 
-  const segmentGeometry = box(.88, .66, .88);
-  const body = new THREE.InstancedMesh(segmentGeometry, material('#48874b'), SIZE * SIZE - 1);
+  const segmentGeometry = box(.92, .42, .92);
+  const body = new THREE.InstancedMesh(segmentGeometry, ink, SIZE * SIZE - 1);
   body.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  body.frustumCulled = false; // Instances move within the fixed board bounds.
+  body.frustumCulled = false;
   body.castShadow = true;
   body.count = 0;
   scene.add(body);
 
-  const head = mesh(segmentGeometry, material('#244e36'));
-  const eyeGeometry = geometry(new THREE.SphereGeometry(.10, 10, 8));
-  const pupilGeometry = geometry(new THREE.SphereGeometry(.055, 8, 6));
-  const white = material('#fff9df');
-  const black = material('#1f2921');
-  for (const x of [-.22, .22]) {
-    head.add(mesh(eyeGeometry, white, [x, .28, -.25]));
-    head.add(mesh(pupilGeometry, black, [x, .33, -.31]));
+  // Bridge consecutive cells, including corners, into one continuous pixel snake.
+  const joints = new THREE.InstancedMesh(box(.18, .42, .82), ink, SIZE * SIZE - 1);
+  joints.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  joints.frustumCulled = false;
+  joints.castShadow = true;
+  joints.count = 0;
+  scene.add(joints);
+
+  const head = mesh(segmentGeometry, ink);
+  const eyeGeometry = box(.12, .012, .12);
+  const eyeMaterial = material('#d1db9e');
+  for (const x of [-.23, .23]) {
+    head.add(mesh(eyeGeometry, eyeMaterial, [x, .216, -.23]));
   }
   scene.add(head);
 
-  const pizza = new THREE.Group();
-  const triangle = new THREE.Shape();
-  triangle.moveTo(0, -.52);
-  triangle.lineTo(.47, .40);
-  triangle.lineTo(-.47, .40);
-  triangle.closePath();
-  const sliceGeometry = geometry(new THREE.ExtrudeGeometry(triangle, { depth: .13, bevelEnabled: false }));
-  const slice = mesh(sliceGeometry, material('#f0b63e'));
-  slice.rotation.x = -Math.PI / 2;
-  pizza.add(slice);
-  pizza.add(mesh(box(.94, .17, .15), material('#c98437'), [0, .1, -.4]));
-  const toppingGeometry = geometry(new THREE.CylinderGeometry(.11, .11, .04, 12));
-  const toppingMaterial = material('#bf3d25');
-  for (const [x, z] of [[0, .1], [-.19, -.2], [.18, -.2]]) {
-    pizza.add(mesh(toppingGeometry, toppingMaterial, [x, .15, z]));
+  // A compact monochrome pixel bite preserves the old LCD game's visual language.
+  const food = new THREE.Group();
+  const pixelGeometry = box(.24, .20, .24);
+  for (const [x, z] of [[0, 0], [-.24, 0], [.24, 0], [0, -.24], [0, .24]]) {
+    food.add(mesh(pixelGeometry, ink, [x, .10, z]));
   }
-  scene.add(pizza);
+  scene.add(food);
 
   let available = true;
   function render() {
@@ -112,7 +110,7 @@ export function createScene(host, onContextLost) {
     const { width, height } = host.getBoundingClientRect();
     if (!width || !height) return;
     const aspect = width / height;
-    const halfHeight = Math.max(9.7, 10 / aspect);
+    const halfHeight = Math.max(8.7, 9.1 / aspect);
     camera.left = -halfHeight * aspect;
     camera.right = halfHeight * aspect;
     camera.top = halfHeight;
@@ -135,16 +133,22 @@ export function createScene(host, onContextLost) {
   return {
     update(game) {
       const first = game.snake[0];
-      head.position.set(first.x - CENTER, .4, first.y - CENTER);
+      head.position.set(first.x - CENTER, .23, first.y - CENTER);
       head.rotation.y = HEAD_ROTATION[game.direction];
       body.count = game.snake.length - 1;
+      joints.count = body.count;
       for (let index = 1; index < game.snake.length; index++) {
         const cell = game.snake[index];
-        body.setMatrixAt(index - 1, matrix.makeTranslation(cell.x - CENTER, .4, cell.y - CENTER));
+        body.setMatrixAt(index - 1, matrix.makeTranslation(cell.x - CENTER, .23, cell.y - CENTER));
+        const previous = game.snake[index - 1];
+        matrix.makeRotationY(previous.x === cell.x ? Math.PI / 2 : 0);
+        matrix.setPosition((previous.x + cell.x) / 2 - CENTER, .23, (previous.y + cell.y) / 2 - CENTER);
+        joints.setMatrixAt(index - 1, matrix);
       }
       body.instanceMatrix.needsUpdate = true;
-      pizza.visible = game.food !== null;
-      if (game.food) pizza.position.set(game.food.x - CENTER, .23, game.food.y - CENTER);
+      joints.instanceMatrix.needsUpdate = true;
+      food.visible = game.food !== null;
+      if (game.food) food.position.set(game.food.x - CENTER, .02, game.food.y - CENTER);
       render();
     },
     dispose() {

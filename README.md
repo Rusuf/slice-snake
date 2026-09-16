@@ -1,16 +1,16 @@
 # Slice Snake 🍕
 
-**One more bite.** A playable 3D Snake concept for a pizza-box experience: scan a QR code, open the browser game, collect pizza slices, and beat your best score.
+**One more bite.** A playable 3D Snake concept for a pizza-box experience: scan a QR code, open the browser game, collect pixel bites, and beat your best score.
 
 Prepared as an independent concept for a potential Pizza Inn box activation. This repository does not imply partnership or brand approval.
 
 ## What is included
 
-- Actual Three.js 3D board, snake, lighting, shadows, and pizza-slice food
+- LCD-green Three.js board, connected pixel snake, shallow 3D depth, and pixel-style food
 - Classic grid movement with four touch buttons, arrow keys, and WASD
 - Three speeds, score, device-local best score, pause, resume, and restart
 - Automatic pause when the tab loses focus
-- Mobile and desktop layouts, keyboard focus styles, and status announcements
+- Viewport-fitted mobile/desktop layouts, landscape side controls, keyboard focus, and status announcements
 - Game, storage, and HTTP regression tests; continuous integration; a pizza-box panel concept
 
 **Status:** playable prototype source. Not deployed. Browser/device visual QA is still required. This version opens a 3D game in the browser; camera AR and tracking the physical box are not implemented.
@@ -30,9 +30,11 @@ No environment variables, backend, accounts, or API keys are required. Fonts and
 
 ## Play
 
-Choose a pace and select **LET'S PLAY**. Use the on-screen arrows, keyboard arrows, or WASD. Collect pizza for 10 points. Hitting the board edge or your body ends the run. Immediate reversal is disabled. After starting, keyboard focus moves to the board. Space pauses/resumes there; Escape pauses. Buttons retain their normal Enter/Space behavior. **Start over** immediately resets the run. Difficulty can be changed between runs.
+Choose a pace and select **LET'S PLAY**. Use the on-screen arrows, keyboard arrows, WASD, or the 2/4/6/8 keypad. Collect a bite for 10 points. Hitting the board edge or your body ends the run. Immediate reversal is disabled. After starting, keyboard focus moves to the board. Space pauses/resumes there; Escape pauses. Buttons retain their normal Enter/Space behavior. **Start over** immediately resets the run. Difficulty can be changed between runs.
 
 Best scores are saved only in this browser. If browser storage is unavailable, the game still works, but the score will not persist after reload.
+
+The board uses the remaining viewport height so the score and controls stay on screen. On short landscape screens, controls move beside the board. Extreme zoom/tiny viewports retain a scrolling fallback to keep controls accessible.
 
 ## Checks
 

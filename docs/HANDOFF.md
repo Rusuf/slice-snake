@@ -1,7 +1,7 @@
 # Slice Snake — prototype handoff
 
 ## Concept
-Turn a pizza box into a short, replayable arcade break. The proposed printed QR opens a mobile browser game inspired by classic Snake, with a 3D board and pizza collectibles.
+Turn a pizza box into a short, replayable arcade break. The proposed printed QR opens a mobile browser game inspired by classic Snake, with a 3D board and pixel food.
 
 ## Submission message
 
@@ -12,7 +12,7 @@ Turn a pizza box into a short, replayable arcade break. The proposed printed QR 
 > Includes the game source, touch/keyboard controls, scoring, difficulty levels, restart, setup instructions, and a proposed box panel. Run instructions are in the README. A hosted demo and final printed QR are the next steps; camera AR is a separate planned phase.
 
 ## Design direction
-Cream paper tones, tomato-red accents, a green tiled board, and a chunky green snake. The game is the main screen, with no signup or landing-page obstacle. Print the panel away from folds and grease-prone areas; retain a clear QR margin and test the final physical print at its actual size.
+Cream paper tones, tomato-red accents, an LCD-green board, and a continuous raised pixel snake. The game fills the available viewport, with controls below it in portrait and beside it on short landscape screens. There is no signup or landing-page obstacle. Print the panel away from folds and grease-prone areas; retain a clear QR margin and test the final physical print at its actual size.
 
 ## What remains
 - Play-test desktop and phone rendering and controls.

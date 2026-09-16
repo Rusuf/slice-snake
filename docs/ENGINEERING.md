@@ -17,13 +17,13 @@ The controller cancels its animation callback when paused, finished, hidden, or 
 
 ## Rendering and device cost
 
-The checkerboard uses two instanced meshes rather than 256 separate draw calls. Body instances and the head/eyes are reused for the entire session instead of being rebuilt per tick. Geometries and materials are shared, pixel ratio is capped at two, and a fixed orthographic camera keeps directions predictable. Resource cleanup disconnects the resize observer and releases GPU resources on final page exit.
+The subtle LCD pixel matrix uses one instanced mesh rather than 256 separate draw calls. A second set of body joints connects the snake cells into a continuous pixel silhouette. Body instances and the head/eyes are reused for the entire session instead of being rebuilt per tick. Geometries and materials are shared, pixel ratio is capped at two, and a fixed orthographic camera keeps directions predictable. Resource cleanup disconnects the resize observer and releases GPU resources on final page exit.
 
 These are implementation choices, not measured performance guarantees. Frame rate, GPU memory use, and battery impact still need checks on actual target phones.
 
 ## Interaction and visual system
 
-The visual hierarchy leads from title to score, game board, and controls. Cream, tomato red, and green connect the experience to the pizza-box concept. Local font stacks eliminate remote-font dependencies, though exact letterforms can differ by operating system.
+The viewport layout prioritizes score, game board, and controls. The desktop introduction disappears on narrow or short screens; landscape controls move beside the board. Dynamic viewport units and safe-area insets account for mobile browser chrome. Extreme magnification retains a scroll fallback rather than clipping controls. Cream and tomato red keep the pizza-box identity around an LCD-green playfield. A shallow top-down camera, continuous dark pixel snake, and small food marker recall monochrome handset Snake without claiming a pixel-perfect replica of a specific handset. Local font stacks eliminate remote-font dependencies, though exact letterforms can differ by operating system.
 
 Directional buttons, pause, restart, and the difficulty selector have a minimum 44-pixel touch height. The controller transfers keyboard focus to the board when play starts and to the next action when a run ends. Direction buttons are disabled outside play. Semantic buttons, visible focus, a skip link, and a live status region support keyboard/assistive navigation. This visual reaction game has not undergone a complete accessibility audit and should not be described as fully screen-reader playable.
 
