@@ -1,6 +1,6 @@
 # Slice Snake
 
-**One more bite.** Classic Snake, reimagined in 3D for a pizza-box arcade experience.
+**One more bite.** Classic Snake, reimagined in 3D.
 
 An LCD-green board, a raised pixel snake, and familiar button controls. Collect bites, grow your snake, and beat your best score—all in the browser.
 
@@ -40,8 +40,4 @@ npm test        # Game, storage, and HTTP regression tests
 npm run check   # JavaScript syntax checks
 ```
 
-[Engineering notes](docs/ENGINEERING.md) · [Box concept](docs/box-panel.svg) · [Handoff brief](docs/HANDOFF.md)
-
-## Pizza-box concept
-
-A printed QR code opens the game—no download or account. The repository includes concept artwork; a hosted URL and final QR are the next steps. Camera AR is not part of this version.
+[Engineering notes](docs/ENGINEERING.md)
