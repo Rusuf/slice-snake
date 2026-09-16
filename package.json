@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "node server.mjs",
     "test": "node --test",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "build": "node scripts/build.mjs"
   },
   "dependencies": {
     "three": "0.185.1"

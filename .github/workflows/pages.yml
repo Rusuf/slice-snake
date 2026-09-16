@@ -22,16 +22,11 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm test && npm run check
-      - name: Collect static files
-        run: |
-          mkdir -p site/node_modules/three/build
-          cp index.html site/
-          cp -r src site/
-          cp node_modules/three/build/three.module.js node_modules/three/build/three.core.js site/node_modules/three/build/
+      - run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: dist
       - name: Publish
         id: deployment
         uses: actions/deploy-pages@v4
