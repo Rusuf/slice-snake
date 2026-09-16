@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Slice Snake — 8th Wall prototype square</title>
+  <style>
+    * { box-sizing: border-box; } body { margin: 0; padding: 24px; background: #fff6dc; color: #193e2b; font: 16px/1.5 Arial, sans-serif; text-align: center; }
+    main { max-width: 680px; margin: auto; } h1 { font-size: 28px; } .target { display: block; width: min(100%, 520px); height: auto; margin: 20px auto; }
+    a, button { display: inline-block; padding: 12px 16px; color: #fff; background: #193e2b; border: 0; border-radius: 4px; font: inherit; margin: 4px; }
+    .notice { font-size: 12px; } .notice a { padding: 0; margin: 0; color: inherit; background: none; } .orientation { font-weight: bold; }
+    @media print { @page { size: A4; margin: 12mm; } body { padding: 0; background: white; font-size: 11px; } h1 { font-size: 18px; margin: 0; } nav, .notice { display: none; } .target { width: 160mm; height: 160mm; margin: 5mm auto; } }
+  </style>
+</head>
+<body><main>
+  <h1>Slice Snake · prototype square</h1>
+  <p>Print at <strong>100% / actual size</strong>. The square should measure <strong>160 × 160 mm</strong>. Lay it flat in even light.</p>
+  <nav><button onclick="window.print()">Print square</button><a href="./">Open prototype</a><a href="./assets/eighth-wall-target.png" download>Download artwork</a></nav>
+  <p>On your Android phone, open this isolated preview → <strong>Play in AR</strong> → <strong>8th Wall · experimental</strong> → allow camera access → point at this artwork.</p>
+  <p class="orientation">↑ Keep this edge facing away from you.</p>
+  <img class="target" src="./assets/eighth-wall-target.png" width="960" height="960" alt="Asymmetric Slice Snake artwork with Pizza Inn logo, green snake and pizza slice; print the whole square without cropping">
+  <p>Keep the artwork visible. Tracking loss pauses the game; press Resume after the square is found again. A blank square will not work. This card is separate from the original MindAR card.</p>
+  <p class="notice">Experimental image tracking uses XR Engine software developed by Niantic Spatial, Inc. Copyright © 2026 Niantic Spatial, Inc. All rights reserved. Licensed under the <a href="./vendor/8thwall/LICENSE">XR Engine License Agreement</a>, including its disclaimer of warranties. No sponsorship or endorsement is implied.</p>
+</main></body>
+</html>

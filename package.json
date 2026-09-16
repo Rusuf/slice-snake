@@ -11,9 +11,13 @@
     "build": "node scripts/build.mjs"
   },
   "dependencies": {
+    "@8thwall/engine-binary": "1.0.0",
     "three": "0.185.1"
   },
   "engines": {
     "node": ">=20.11"
+  },
+  "devDependencies": {
+    "@8thwall/image-target-cli": "1.0.0"
   }
 }

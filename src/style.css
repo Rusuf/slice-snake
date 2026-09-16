@@ -295,3 +295,9 @@ html:has(body.surface-mode), body.surface-mode, body:xr-overlay { background: tr
 @media (prefers-reduced-motion: reduce) {
   .joystick:not([data-dragging]) .joystick-thumb { transition: none; }
 }
+
+/* XR8 draws the camera behind the existing transparent Three.js canvas. */
+#canvas-host canvas.eighth-wall-camera { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.ar-chooser { max-height: 90dvh; overflow-y: auto; }
+
+.ar-license { font-size: 11px; line-height: 1.4; }

@@ -24,6 +24,7 @@ export function createScene(host, onContextLost) {
   scene.add(board);
   const normalOnly = [];
   let arMode = false;
+  let externalFrames = false;
   const geometries = new Set();
   const materials = new Set();
   const geometry = value => { geometries.add(value); return value; };
@@ -208,7 +209,8 @@ export function createScene(host, onContextLost) {
     joints.instanceMatrix.needsUpdate = true;
   }
 
-  function render() {
+  function render(force = false) {
+    if (externalFrames && !force) return;
     if (available && !renderer.xr.isPresenting) renderer.render(scene, camera);
   }
   function resize() {
@@ -248,7 +250,8 @@ export function createScene(host, onContextLost) {
       }
       return best;
     },
-    enterAR() {
+    enterAR(options = {}) {
+      externalFrames = Boolean(options.externalFrames);
       arMode = true;
       scene.background = null;
       renderer.setClearColor(0x000000, 0);
@@ -271,8 +274,9 @@ export function createScene(host, onContextLost) {
       if (matrix) board.matrix.copy(matrix);
       board.matrixWorldNeedsUpdate = true;
     },
-    renderAR() { if (arMode) render(); },
+    renderAR() { if (arMode) render(true); },
     exitAR() {
+      externalFrames = false;
       arMode = false;
       scene.background = new THREE.Color('#ece4d5');
       renderer.shadowMap.enabled = true;

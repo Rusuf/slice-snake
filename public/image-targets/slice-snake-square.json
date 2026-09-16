@@ -1,0 +1,27 @@
+{
+  "imagePath": "image-targets/slice-snake-square_luminance.png",
+  "metadata": {
+    "printWidthMm": 160,
+    "artwork": "eighth-wall-target.png",
+    "boardSpan": "full-square-height"
+  },
+  "name": "slice-snake-square",
+  "type": "PLANAR",
+  "properties": {
+    "left": 120,
+    "top": 0,
+    "width": 720,
+    "height": 960,
+    "isRotated": false,
+    "originalWidth": 960,
+    "originalHeight": 960
+  },
+  "resources": {
+    "originalImage": "slice-snake-square_original.png",
+    "croppedImage": "slice-snake-square_cropped.png",
+    "thumbnailImage": "slice-snake-square_thumbnail.png",
+    "luminanceImage": "slice-snake-square_luminance.png"
+  },
+  "created": 1789516800000,
+  "updated": 1789516800000
+}

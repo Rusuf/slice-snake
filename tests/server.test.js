@@ -76,3 +76,24 @@ test('serves the branded assets, printable target, and pinned AR runtime', async
     await response.text();
   }
 });
+
+test('prototype runtime and target use explicit routes and correct MIME types', async () => {
+  const { EIGHTH_WALL_ASSETS } = await import('../scripts/eighth-wall-assets.mjs');
+  for (const path of EIGHTH_WALL_ASSETS) {
+    const response = await fetch(origin + path, { method: 'HEAD' });
+    assert.equal(response.status, 200, path);
+    const type = path.endsWith('.js') ? 'text/javascript' : path.endsWith('.json') ? 'application/json' :
+      path.endsWith('.png') ? 'image/png' : path.endsWith('.svg') ? 'image/svg+xml' :
+      path.endsWith('.html') ? 'text/html' : path.endsWith('.glb') ? 'model/gltf-binary' :
+      path.endsWith('.tflite') ? 'application/octet-stream' : 'text/plain';
+    assert.ok(response.headers.get('content-type').startsWith(type), path);
+  }
+  const target = await (await fetch(origin + '/image-targets/slice-snake-square.json')).json();
+  const image = await fetch(origin + '/' + target.imagePath);
+  assert.equal(image.status, 200);
+  assert.equal(target.properties.height, target.properties.originalHeight);
+  assert.equal(target.properties.left * 2 + target.properties.width, target.properties.originalWidth);
+  for (const path of ['/vendor/8thwall/package.json', '/image-targets/secrets.json', '/scripts/eighth-wall-assets.mjs', '/vendor/8thwall/resources/../../../../.git/config']) {
+    assert.equal((await fetch(origin + path)).status, 404, path);
+  }
+});

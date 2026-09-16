@@ -11,7 +11,7 @@ const ui = {
   speed: element('speed'), levelName: element('level-name'), levelHelp: element('level-help'), score: element('score'), best: element('best'), status: element('status'),
   joystick: element('joystick'), handedness: element('handedness'),
   arToggle: element('ar-toggle'), arStatus: element('ar-status'), arCard: element('ar-card-link'),
-  arChooser: element('ar-chooser'), surfaceButton: element('surface-ar'), imageButton: element('image-ar'), arCancel: element('ar-cancel'),
+  arChooser: element('ar-chooser'), surfaceButton: element('surface-ar'), imageButton: element('image-ar'), eighthWallButton: element('eighth-wall-ar'), arCancel: element('ar-cancel'),
   surfaceTools: element('surface-tools'), smaller: element('board-smaller'), larger: element('board-larger'), size: element('board-size'), reposition: element('reposition'),
   players: element('players'), share: element('share-score'), scoreLabel: element('score-label'), bestLabel: element('best-label'),
 };
@@ -90,7 +90,8 @@ function syncControls() {
   ui.arToggle.disabled = !scene || fault || closingAR;
   const waiting = arKind === 'surface' && !arPlaced ? !arCanPlace : !arTracked;
   ui.start.disabled = !scene || (!fault && arRequested && waiting);
-  ui.arCard.hidden = !arRequested || arKind !== 'image';
+  ui.arCard.hidden = !arRequested || !['image', 'eighth-wall'].includes(arKind);
+  ui.arCard.href = arKind === 'eighth-wall' ? './eighth-wall-target.html' : './target.html';
   ui.surfaceTools.hidden = !arRequested || arKind !== 'surface';
   ui.reposition.disabled = !arPlaced;
   ui.smaller.disabled = ui.larger.disabled = !arSession;
@@ -159,7 +160,7 @@ function tick(time) {
   if (game.status !== 'playing') finish();
   else {
     scene.animate(time);
-    if (arKind !== 'surface') frame = requestAnimationFrame(tick);
+    if (arKind !== 'surface' && arKind !== 'eighth-wall') frame = requestAnimationFrame(tick);
   }
 }
 
@@ -178,7 +179,7 @@ function play({ restart = false } = {}) {
   syncControls();
   ui.status.textContent = 'Game running. Collect bites and avoid the edges and your tail.';
   ui.board.focus({ preventScroll: true });
-  if (arKind !== 'surface') frame = requestAnimationFrame(tick);
+  if (arKind !== 'surface' && arKind !== 'eighth-wall') frame = requestAnimationFrame(tick);
 }
 
 function pause({ focus = true } = {}) {
@@ -284,6 +285,7 @@ on(ui.arToggle, 'click', () => {
 on(ui.arCancel, 'click', () => ui.arChooser.close());
 on(ui.surfaceButton, 'click', () => { ui.arChooser.close(); beginAR('surface'); });
 on(ui.imageButton, 'click', () => { ui.arChooser.close(); beginAR('image'); });
+on(ui.eighthWallButton, 'click', () => { ui.arChooser.close(); beginAR('eighth-wall'); });
 on(ui.smaller, 'click', () => { if (arSession) ui.size.textContent = `${arSession.resize(-.03)} cm`; });
 on(ui.larger, 'click', () => { if (arSession) ui.size.textContent = `${arSession.resize(.03)} cm`; });
 on(ui.reposition, 'click', () => {
@@ -295,6 +297,7 @@ on(ui.reposition, 'click', () => {
 });
 
 async function beginAR(kind) {
+  if (arRequested || closingAR || !scene || fault) return;
   pause({ focus: false });
   arRequested = true;
   arTracked = arPlaced = arCanPlace = false;
@@ -307,11 +310,12 @@ async function beginAR(kind) {
   ui.arToggle.setAttribute('aria-pressed', 'true');
   ui.size.textContent = '24 cm';
   if (kind === 'surface') scanningSurface();
+  else if (kind === 'eighth-wall') showOverlay('8TH WALL · EXPERIMENTAL', 'Find your printed square.', 'Print the prototype card, open this preview on your phone, allow the camera, then point at the artwork.', 'FINDING SQUARE…');
   else showOverlay('AR DEMO', 'Find your demo card.', 'Print the tracking card, place it flat, and point your camera at it.', 'FINDING CARD…');
   syncControls();
   const callbacks = {
     view: scene, signal: currentAttempt.signal,
-    onStatus: text => { ui.arStatus.textContent = text; },
+    onStatus: text => { if (!currentAttempt.signal.aborted) ui.arStatus.textContent = text; },
     onError: error => {
       if (currentAttempt.signal.aborted) return;
       exitAR();
@@ -358,6 +362,10 @@ async function beginAR(kind) {
         },
         onEnd: () => { if (!currentAttempt.signal.aborted) exitAR(); },
       });
+    } else if (kind === 'eighth-wall') {
+      const { startEighthWallSession } = await import('./eighth-wall-session.js');
+      if (currentAttempt.signal.aborted) return;
+      arSession = await startEighthWallSession({ ...callbacks, host: ui.board, onFrame: tick });
     } else {
       const { startARSession } = await import('./ar-session.js');
       if (currentAttempt.signal.aborted) return;
