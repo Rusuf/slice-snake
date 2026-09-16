@@ -159,12 +159,29 @@ h2 { max-width: 300px; font-family: var(--display); font-size: clamp(27px, 2.7vw
 .overlay-note { font-size: 8px; letter-spacing: 1px; margin-top: 14px; color: #3a4c2e; }
 
 .control-panel { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; gap: 12px; border-top: 1px solid var(--line); }
-.settings { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 16px; }
-.settings label { grid-column: 1 / -1; font-size: 8px; letter-spacing: 1.3px; font-weight: 700; }
-select { min-height: 44px; min-width: 0; max-width: 100%; border: 0; border-bottom: 1px solid #b9bfab; background: transparent; padding: 4px 8px 4px 0; font-size: 12px; color: #303b2c; }
-select:disabled { opacity: .65; }
-.settings p { grid-row: 3; grid-column: 1 / -1; font-size: 10px; line-height: 1.6; color: #505b46; margin: 6px 0 0; }
-.text-button { grid-row: 2; grid-column: 2; min-height: 44px; padding: 7px 0; background: none; border: 0; color: var(--accent); font-size: 11px; white-space: nowrap; }
+.settings { flex: 1; min-width: 132px; max-width: 210px; }
+#speed { min-width: 0; margin: 0; padding: 0; border: 0; }
+#speed legend { width: 100%; padding: 0; margin-bottom: 8px; font-size: 9px; letter-spacing: 1.2px; font-weight: 700; }
+#level-name { float: right; color: var(--accent); font-size: 8px; letter-spacing: .6px; }
+.level-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+.level-option { position: relative; cursor: pointer; }
+.level-option span {
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #c6cbb9;
+  border-right-width: 0;
+  background: #eef0e4;
+  color: #354931;
+  font: 700 17px ui-monospace, 'Courier New', monospace;
+}
+.level-option:first-child span { border-radius: 5px 0 0 5px; }
+.level-option:last-child span { border-radius: 0 5px 5px 0; border-right-width: 1px; }
+.level-option input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff8eb; }
+.level-option input:focus-visible + span { position: relative; z-index: 1; outline: 3px solid #215846; outline-offset: 2px; }
+.level-option:has(input:disabled) { cursor: default; }
+.level-option input:disabled + span { opacity: .7; }
+.level-help { min-height: 14px; margin: 7px 0 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
 .dpad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 3px; flex-shrink: 0; touch-action: none; user-select: none; }
 .dpad button { border: 1px solid #c6cbb9; border-bottom: 3px solid #a9b299; border-radius: 5px; background: #eef0e4; color: #354931; font-size: 23px; touch-action: none; }
 .dpad button:active:not(:disabled) { background: #d2d9bd; transform: translateY(1px); }
@@ -187,13 +204,9 @@ footer i { color: var(--accent); font-style: normal; font-size: 15px; margin-lef
   main { grid-template-columns: minmax(0, 1fr); padding: 10px 3%; gap: 0; }
   .intro { display: none; }
   .arcade { max-width: 740px; justify-self: center; }
-  .scorebar { min-height: 58px; padding: 6px 14px; gap: 14px; }
+  .scorebar { min-height: 58px; padding: 6px 14px; gap: 10px; }
   .scorebar strong { font-size: 25px; }
-  .control-panel { padding: 8px 14px; }
-  .settings { display: block; }
-  .settings label { display: block; }
-  .settings p { display: none; }
-  .text-button { display: block; }
+  .control-panel { padding: 8px 10px; gap: 8px; }
   .dpad { grid-template-rows: repeat(3, 44px); }
   footer { height: 24px; margin: 0 3%; font-size: 7px; letter-spacing: .5px; }
   footer i { display: none; }
@@ -207,11 +220,9 @@ footer i { color: var(--accent); font-style: normal; font-size: 15px; margin-lef
   .arcade { max-width: 1080px; grid-template-columns: minmax(0, 1fr) 182px; grid-template-rows: 52px minmax(0, 1fr); }
   .scorebar { min-height: 0; grid-column: 1; grid-row: 1; }
   .stage { grid-column: 1; grid-row: 2; }
+  .settings { flex: none; width: 100%; }
+  .level-help { display: none; }
   .control-panel { grid-column: 2; grid-row: 1 / -1; flex-direction: column; justify-content: center; gap: 8px; padding: 10px; border-top: 0; border-left: 1px solid var(--line); }
-  .settings { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; }
-  .settings label { grid-column: 1 / -1; }
-  select { font-size: 10px; }
-  .text-button { font-size: 10px; }
 }
 
 @container (max-height: 290px) {

@@ -6,7 +6,7 @@ const ui = {
   arcade: element('arcade'), board: element('canvas-host'), overlay: element('overlay'),
   tag: element('overlay-tag'), title: element('overlay-title'), copy: element('overlay-copy'),
   start: element('start'), pause: element('pause'), restart: element('restart'),
-  speed: element('speed'), score: element('score'), best: element('best'), status: element('status'),
+  speed: element('speed'), levelName: element('level-name'), levelHelp: element('level-help'), score: element('score'), best: element('best'), status: element('status'),
   directions: [...document.querySelectorAll('[data-dir]')],
 };
 const KEYS = {
@@ -14,7 +14,7 @@ const KEYS = {
   w: 'up', s: 'down', a: 'left', d: 'right',
   '2': 'up', '8': 'down', '4': 'left', '6': 'right',
 };
-const SPEEDS = new Set([190, 140, 95]);
+const LEVELS = new Map([[190, 'EASY'], [140, 'CLASSIC'], [95, 'FAST']]);
 const listeners = new AbortController();
 let game = createGame();
 let scene;
@@ -56,8 +56,11 @@ function syncControls() {
   ui.overlay.hidden = playing;
   ui.pause.disabled = !active;
   ui.pause.textContent = game.status === 'paused' ? '▷' : 'Ⅱ';
-  ui.pause.setAttribute('aria-label', game.status === 'paused' ? 'Resume game' : 'Pause game');
-  ui.speed.disabled = active || fault;
+  const pauseLabel = game.status === 'paused' ? 'Resume game' : 'Pause game';
+  ui.pause.setAttribute('aria-label', pauseLabel);
+  ui.pause.title = pauseLabel;
+  ui.speed.disabled = playing || fault;
+  ui.levelHelp.textContent = fault ? 'Game unavailable' : playing ? 'Pause to change' : 'Choose your speed';
   ui.restart.disabled = !scene || fault || game.status === 'ready';
   ui.directions.forEach(button => { button.disabled = !playing; });
 }
@@ -117,8 +120,8 @@ function play({ restart = false } = {}) {
   if (!scene || game.status === 'playing' && !restart) return;
   stopClock();
   if (restart || game.status !== 'paused') game = createGame();
-  const selected = Number(ui.speed.value);
-  interval = SPEEDS.has(selected) ? selected : 140;
+  const selected = Number(ui.speed.querySelector('input:checked')?.value);
+  interval = LEVELS.has(selected) ? selected : 140;
   game.status = 'playing';
   scene.update(game);
   syncScore();
@@ -146,6 +149,10 @@ function togglePause() {
 on(ui.start, 'click', () => play());
 on(ui.pause, 'click', togglePause);
 on(ui.restart, 'click', () => play({ restart: true }));
+on(ui.speed, 'change', () => {
+  const selected = Number(ui.speed.querySelector('input:checked')?.value);
+  ui.levelName.textContent = LEVELS.get(selected) ?? 'CLASSIC';
+});
 for (const button of ui.directions) {
   on(button, 'pointerdown', event => {
     if (event.button !== 0 || button.disabled) return;

@@ -37,7 +37,8 @@
         <div class="scorebar">
           <div><span class="label">YOUR SCORE</span><strong id="score">000</strong></div>
           <div class="best"><span class="label">PERSONAL BEST</span><strong id="best">000</strong></div>
-          <button id="pause" class="icon-button" type="button" disabled aria-label="Pause game">Ⅱ</button>
+          <button id="restart" class="icon-button" type="button" disabled aria-label="Restart game" title="Restart game">↻</button>
+          <button id="pause" class="icon-button" type="button" disabled aria-label="Pause game" title="Pause game">Ⅱ</button>
         </div>
 
         <div class="stage">
@@ -54,14 +55,25 @@
 
         <div class="control-panel">
           <div class="settings">
-            <label for="speed">PICK YOUR PACE</label>
-            <select id="speed">
-              <option value="190">Easy does it</option>
-              <option value="140" selected>Classic crunch</option>
-              <option value="95">Extra spicy</option>
-            </select>
-            <p id="instructions">Arrow keys / WASD<br><span>Space to pause</span></p>
-            <button id="restart" class="text-button" type="button" disabled>↻ Start over</button>
+            <fieldset id="speed" aria-describedby="level-help">
+              <legend>LEVEL <span id="level-name">CLASSIC</span></legend>
+              <div class="level-options">
+                <label class="level-option">
+                  <input class="sr-only" type="radio" name="level" value="190" aria-label="Level 1: Easy">
+                  <span aria-hidden="true">1</span>
+                </label>
+                <label class="level-option">
+                  <input class="sr-only" type="radio" name="level" value="140" aria-label="Level 2: Classic" checked>
+                  <span aria-hidden="true">2</span>
+                </label>
+                <label class="level-option">
+                  <input class="sr-only" type="radio" name="level" value="95" aria-label="Level 3: Fast">
+                  <span aria-hidden="true">3</span>
+                </label>
+              </div>
+              <p id="level-help" class="level-help">Choose your speed</p>
+            </fieldset>
+            <p id="instructions" class="sr-only">Move with arrow keys, WASD, or 2/4/6/8. Space pauses the game; Escape takes a break.</p>
           </div>
           <div class="dpad" role="group" aria-label="Directional controls">
             <button data-dir="up" type="button" aria-label="Move up" disabled>↑</button>
