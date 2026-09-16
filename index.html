@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f0e5">
+  <meta name="description" content="A little nostalgia with your next slice. Play Slice Snake, a pizza-inspired 3D arcade game.">
+  <title>Slice Snake — One more bite.</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🍕%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./src/style.css">
+  <script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js"}}</script>
+</head>
+<body>
+  <header class="masthead"><a href="./" class="wordmark" aria-label="Slice Snake home"><span class="brand-icon">S</span> SLICE SNAKE<span class="brand-dot">✳</span></a><span class="edition">FRESH OUT OF THE ARCADE <span>EST. 2026</span></span></header>
+  <main>
+    <section class="intro"><div class="eyebrow"><span></span> THE PIZZA BREAK JUST GOT BETTER</div><h1>One more <em>bite.</em></h1><p>Old-school Snake. A fresh dimension.<br>Grab a slice. Grow your snake. Don't bite yourself.</p><div class="intro-bottom"><span class="number">01 /</span><span>A LITTLE NOSTALGIA.<br>A LOT OF APPETITE.</span></div></section>
+    <section class="arcade" aria-label="Slice Snake game">
+      <div class="scorebar"><div><span class="label">YOUR SCORE</span><strong id="score">000</strong></div><div class="best"><span class="label">PERSONAL BEST</span><strong id="best">000</strong></div><button id="pause" class="icon-button" disabled aria-label="Pause game">Ⅱ</button></div>
+      <div class="stage" id="stage"><div id="canvas-host" aria-label="3D Snake game board"></div><div id="overlay" class="overlay"><span class="eyebrow" id="overlay-tag">HOT & READY</span><h2 id="overlay-title">Feed your<br>competitive side.</h2><p id="overlay-copy">Collect pizza. Keep moving.<br>Stay clear of the edges and your tail.</p><button id="start" class="primary">LET'S PLAY <span>↗</span></button><span class="overlay-note">NO DOWNLOAD. JUST ONE MORE GO.</span></div><div class="stage-label">16 × 16 · FRESHLY BAKED</div></div>
+      <div class="control-panel"><div class="settings"><label for="speed">PICK YOUR PACE</label><select id="speed"><option value="190">Easy does it</option><option value="140" selected>Classic crunch</option><option value="95">Extra spicy</option></select><p>Arrow keys / WASD<br><span>Space to pause</span></p><button id="restart" class="text-button">↻ Start over</button></div><div class="dpad" aria-label="Directional controls"><button data-dir="up" aria-label="Move up">↑</button><button data-dir="left" aria-label="Move left">←</button><span class="dpad-center">•</span><button data-dir="right" aria-label="Move right">→</button><button data-dir="down" aria-label="Move down">↓</button></div></div>
+      <p id="status" class="sr-only" role="status" aria-live="polite">Ready to play.</p>
+    </section>
+  </main>
+  <footer><span>A BOX FULL OF POSSIBILITIES.</span><span>SLICE SNAKE / PLAYABLE CONCEPT <i>✳</i></span></footer>
+  <noscript>This game needs JavaScript enabled to play.</noscript>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

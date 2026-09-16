@@ -1,0 +1,9 @@
+{
+  "name": "slice-snake",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A pizza-box-inspired 3D Snake browser game",
+  "scripts": {"dev": "node server.mjs", "test": "node --test", "check": "node --check src/main.js && node --check src/game.js && node --check server.mjs"},
+  "dependencies": {"three": "0.185.1"}
+}

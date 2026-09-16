@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createGame, step, turn, spawnFood, SIZE } from '../src/game.js';
+const playing = () => ({ ...createGame(() => 0), status: 'playing' });
+test('moves one square without changing length', () => { const g=playing(); step(g); assert.deepEqual(g.snake[0],{x:7,y:8}); assert.equal(g.snake.length,3); });
+test('food grows snake and adds ten points', () => { const g=playing(); g.food={x:7,y:8}; step(g,()=>0); assert.equal(g.score,10); assert.equal(g.snake.length,4); assert.ok(!g.snake.some(p=>p.x===g.food.x&&p.y===g.food.y)); });
+test('reversal is ignored; fast valid turns happen on separate ticks', () => { const g=playing(); turn(g,'left'); assert.equal(g.queue.length,0); turn(g,'up'); turn(g,'left'); step(g); assert.deepEqual(g.snake[0],{x:6,y:7}); step(g); assert.deepEqual(g.snake[0],{x:5,y:7}); });
+test('wall collision ends game', () => { const g=playing(); g.snake=[{x:15,y:8}]; step(g); assert.equal(g.status,'over'); });
+test('body collision ends game', () => { const g=playing(); g.snake=[{x:2,y:2},{x:3,y:2},{x:3,y:3},{x:2,y:3}]; step(g); assert.equal(g.status,'over'); });
+test('moving into the vacating tail is valid', () => { const g=playing(); g.snake=[{x:2,y:2},{x:2,y:3},{x:3,y:3},{x:3,y:2}]; step(g); assert.equal(g.status,'playing'); });
+test('paused games do not move', () => { const g=playing(); g.status='paused'; const before=structuredClone(g); turn(g,'up'); step(g); assert.deepEqual(g,before); });
+test('filled board has no food; final food wins', () => { const snake=[]; for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++)snake.push({x,y}); assert.equal(spawnFood(snake),null); const g=playing(); g.snake=[{x:14,y:15},...snake.filter(p=>!(p.x===14&&p.y===15)&&!(p.x===15&&p.y===15))]; g.food={x:15,y:15}; step(g); assert.equal(g.status,'won'); });
+test('fresh game resets score, queue and length', () => { const g=createGame(); assert.equal(g.score,0); assert.equal(g.status,'ready'); assert.equal(g.snake.length,3); assert.deepEqual(g.queue,[]); });
