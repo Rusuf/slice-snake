@@ -118,6 +118,10 @@ export async function startEighthWallSession({
       name: 'slice-snake-image-target',
       onStart() {
         if (stopped) return;
+        // XR8 responsive scale derives from origin.y; MindAR's zero origin
+        // would collapse that scale. Use a unit-height XR8 origin instead.
+        camera.position.set(0, 1, 0);
+        camera.updateMatrixWorld();
         runtime.XrController.updateCameraProjectionMatrix({ origin: camera.position, facing: camera.quaternion });
         clearTimeout(startupTimer);
         started = true;
@@ -146,6 +150,13 @@ export async function startEighthWallSession({
         camera.position.copy(reality.position);
         camera.quaternion.copy(reality.rotation);
         camera.updateMatrixWorld();
+        // Pose-change events are not a heartbeat: stationary targets may emit none.
+        // The pinned runtime returns current detections on each processed frame.
+        if (Array.isArray(reality.detectedImages)) {
+          const detected = reality.detectedImages.find(image => image.name === target.name);
+          if (detected) pose({ detail: detected });
+          else tracking(false);
+        }
         if (found && performance.now() - lastTracking > 900) tracking(false);
         onFrame(performance.now());
       },

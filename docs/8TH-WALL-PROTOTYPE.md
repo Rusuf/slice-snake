@@ -4,6 +4,37 @@ Updated 2026-09-16. **Implemented for device trial; tracking quality unverified.
 Branch: `prototype/8thwall`. Worktree: `/home/souf/projects/slice-snake-8thwall`.
 Base: `f238da7`. Original checkout and submitted demo remain unchanged. No push or deployment.
 
+## 2026-09-17 tracking corrections
+
+Fixed two adapter defects found after the first phone report:
+
+- Set the XR8 camera origin to unit height before configuring its projection.
+  The pinned engine derives responsive scale from origin.y; the previous MindAR-style
+  zero origin produced a degenerate scale.
+- Refresh target visibility from the pinned runtime's per-frame `detectedImages`
+  snapshot. Pose-change events alone are not a tracking heartbeat: a stationary
+  target could previously trigger the 900 ms loss watchdog despite still being visible.
+
+The AR chooser now explicitly says that 8th Wall requires the supplied artwork.
+Arbitrary squares, rectangles and plain tabletops are not image targets. The separate
+native surface mode remains the option for supported Android surface placement.
+
+Verification for this correction: 52 automated tests passed, including new regressions
+for nonzero startup scale and stationary-target tracking; syntax and whitespace checks
+passed. Installed Windows Edge was found and used with an isolated temporary profile,
+without downloading a browser. The real vendored XR8 engine and image-tracking WASM
+initialized in the browser. A separate browser test using simulated tracking exercised
+the real Three.js scene, AR adapter, game loop and controls: stationary target retention,
+snake movement and keyboard steering, loss pause, explicit resume, board rendering,
+and camera-canvas cleanup all passed at a 390 × 844 browser window setting.
+
+The first engine check still showed WAITING at a 15-second virtual-time budget; a
+35-second observation completed successfully. This is a headless test observation,
+not a measured phone startup time. No real camera, physical target, Android tracking
+quality, or native WebXR surface was verified. No production build or deployment.
+These corrections are on the prototype branch; main was independently advanced to
+`b9db287` before this correction and is not modified by this fix.
+
 ## Implemented
 
 - A separate **8th Wall · experimental** entry in the AR chooser, retaining MindAR

@@ -29,7 +29,7 @@ function setup(t, run = module => module.onStart()) {
     XrController: {
       configure(options) { calls.config = options; },
       pipelineModule() { assert.equal(calls.config.disableWorldTracking, true); return { name: 'reality' }; },
-      updateCameraProjectionMatrix() {},
+      updateCameraProjectionMatrix(options) { calls.origin = options.origin.clone(); },
     },
     GlTextureRenderer: { pipelineModule: () => ({ name: 'camera' }) },
     XrConfig: { device: () => ({ MOBILE: 'mobile' }), camera: () => ({ BACK: 'back' }) },
@@ -157,4 +157,29 @@ test('one session at a time owns XR8, and stopping permits re-entry', async t =>
   const second = await startEighthWallSession(s.options);
   second.stop();
   assert.equal(s.calls.stopped, 2);
+});
+
+
+test('XR8 starts with a nonzero responsive scale despite the ordinary AR camera origin', async t => {
+  const s = setup(t);
+  s.camera.position.set(0, 0, 0);
+  await startEighthWallSession(s.options);
+  assert.deepEqual(s.calls.origin.toArray(), [0, 1, 0]);
+});
+
+test('stationary target stays tracked across frames without imageupdated events', async t => {
+  const s = setup(t);
+  let now = 100;
+  t.mock.method(performance, 'now', () => now);
+  await startEighthWallSession(s.options);
+  s.emit('imagefound');
+  const reality = { intrinsics: s.camera.projectionMatrix.elements, position: detail.position, rotation: detail.rotation, detectedImages: [detail] };
+  for (now = 1100; now <= 5100; now += 1000) {
+    s.pipeline().onUpdate({ processCpuResult: { reality } });
+    assert.equal(s.calls.visible, true);
+  }
+  assert.deepEqual(s.calls.tracking, [true]);
+  s.pipeline().onUpdate({ processCpuResult: { reality: { ...reality, detectedImages: [] } } });
+  assert.equal(s.calls.visible, false);
+  assert.deepEqual(s.calls.tracking, [true, false]);
 });
