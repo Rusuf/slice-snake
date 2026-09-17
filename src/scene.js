@@ -28,6 +28,7 @@ export function createScene(host, onContextLost) {
   let externalFrames = false;
   let spatialControls;
   let spatialMode = false;
+  let spatialUIEnabled = true;
   let arPreview = false;
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -291,7 +292,11 @@ export function createScene(host, onContextLost) {
       configureARCamera(camera);
     },
     layoutARControls(pose) { spatialControls?.layout(pose); },
-    setARControls(state) { spatialControls?.update(state); },
+    setARControls(state) {
+      spatialUIEnabled = !state.screenControls;
+      spatialControls?.update(state);
+      if (spatialControls) spatialControls.group.visible = board.visible && spatialMode && spatialUIEnabled;
+    },
     setARPreview(value) { arPreview = value; },
     pickARAction(clientX, clientY, width, height) {
       if (!arMode || !board.visible || !renderer.xr.isPresenting || !width || !height) return null;
@@ -312,7 +317,7 @@ export function createScene(host, onContextLost) {
     trackAR(matrix, visible) {
       if (!arMode) return;
       board.visible = visible;
-      if (spatialControls) spatialControls.group.visible = visible && spatialMode;
+      if (spatialControls) spatialControls.group.visible = visible && spatialMode && spatialUIEnabled;
       if (matrix) board.matrix.copy(matrix);
       board.matrixWorldNeedsUpdate = true;
     },

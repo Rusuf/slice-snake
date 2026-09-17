@@ -1,6 +1,7 @@
 import { createGame, step, turn, steer } from './game.js';
 import { readBestScore, writeBestScore } from './storage.js';
 import { bindJoystick } from './joystick.js';
+import { bindARSwipe } from './ar-swipe.js';
 import { readChallenge, challengeURL, createMatch, advanceMatch, finishMatchRound } from './social.js';
 
 const element = id => document.getElementById(id);
@@ -43,6 +44,7 @@ let arCanPlace = false;
 let arPlacementKind = null;
 let closingAR = false;
 let screenControls = false;
+let swipeUsed = false;
 let boardSize = 24;
 let match = createMatch();
 const challenge = readChallenge(window.location.search);
@@ -76,7 +78,7 @@ function syncSpatialControls() {
     score: game.score, best: challenge?.score ?? best, status: game.status,
     placed: arPlaced, ready: Boolean(arSession) && (arPlaced ? arTracked : arCanPlace),
     kind: arPlacementKind, size: boardSize, mode: gameMode,
-    player: match.enabled ? match.player : null,
+    player: match.enabled ? match.player : null, screenControls, swipeUsed,
   });
 }
 
@@ -97,7 +99,7 @@ function syncControls() {
   document.body.classList.toggle('spatial-ar', spatialReady && !screenControls);
   ui.screenControls.hidden = !surface;
   ui.screenControls.setAttribute('aria-pressed', String(screenControls));
-  ui.screenControls.textContent = screenControls ? '3D CONTROLS' : 'SCREEN CONTROLS';
+  ui.screenControls.textContent = screenControls ? 'AR view' : 'Controls';
   document.body.classList.toggle('surface-scanning', arRequested && arKind === 'surface' && !arPlaced);
   const active = ['playing', 'paused'].includes(game.status) && !fault;
   ui.overlay.hidden = playing;
@@ -214,6 +216,7 @@ function play({ restart = false } = {}) {
 function pause({ focus = true } = {}) {
   if (fault || game.status !== 'playing') return;
   game.status = 'paused';
+  swipe.reset();
   stopClock();
   scene?.settle();
   syncControls();
@@ -301,6 +304,7 @@ function exitAR() {
   arCanPlace = false;
   arKind = null;
   spatialTap = null;
+  swipe.reset();
   closingAR = true;
   arAbort?.abort();
   const closing = arSession?.stop();
@@ -317,7 +321,7 @@ function scanningSurface() {
     !arCanPlace ? 'Hold your phone steady to show the placement preview.' : arPlacementKind === 'surface' ? 'Surface found. Tap the 3D board or Place & Play.' : 'Aim the 3D board, then tap to place. Amber means manual placement; green means a surface was found.',
     !arCanPlace ? 'STARTING CAMERA…' : arPlacementKind === 'surface' ? 'PLACE & PLAY ↗' : 'PLACE MANUALLY & PLAY ↗');
 }
-on(ui.screenControls, 'click', () => { screenControls = !screenControls; syncControls(); });
+on(ui.screenControls, 'click', () => { screenControls = !screenControls; swipe.reset(); syncControls(); });
 on(ui.arToggle, 'click', () => {
   if (arRequested) exitAR();
   else beginAR('surface');
@@ -365,6 +369,15 @@ on(document, 'pointerup', event => {
   spatialAction(tap.action);
 });
 on(document, 'pointercancel', () => { spatialTap = null; });
+const swipe = bindARSwipe(document, {
+  signal: listeners.signal,
+  enabled: () => arKind === 'surface' && arTracked && !screenControls && game.status === 'playing',
+  canStart: event => !spatialTap && !event.target.closest('button, a, .overlay, .control-panel, .surface-tools, .masthead'),
+  onDirection: direction => {
+    spatialAction(direction);
+    if (!swipeUsed) { swipeUsed = true; syncSpatialControls(); }
+  },
+});
 on(ui.reposition, 'click', () => {
   pause({ focus: false });
   arPlaced = arTracked = arCanPlace = false;
@@ -383,7 +396,7 @@ async function beginAR(kind) {
   const currentAttempt = arAbort;
   document.body.classList.add('camera-mode');
   document.body.classList.toggle('surface-mode', kind === 'surface');
-  ui.arToggle.textContent = 'BACK TO 3D';
+  ui.arToggle.textContent = 'Exit AR';
   ui.arToggle.setAttribute('aria-pressed', 'true');
   boardSize = 24;
   ui.size.textContent = '24 cm';

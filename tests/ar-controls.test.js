@@ -5,7 +5,7 @@ import { createARControls } from '../src/ar-controls.js';
 
 function fixture() {
   let draws = 0;
-  const controls = createARControls(() => ({ getContext: () => ({ fillRect() {}, fillText() { draws++; } }) }));
+  const controls = createARControls(() => ({ getContext: () => ({ clearRect() {}, strokeText() {}, fillRect() {}, fillText() { draws++; } }) }));
   controls.group.visible = true;
   const camera = new PerspectiveCamera(65, .55, .01, 30);
   controls.layout({ transform: { position: new Vector3(), orientation: new Quaternion() }, views: [{ projectionMatrix: camera.projectionMatrix.elements }] });
@@ -16,21 +16,20 @@ function fixture() {
   return { controls, pick, get draws() { return draws; } };
 }
 
-test('spatial buttons pick only the available actions for placement, play, and pause', () => {
+test('placement has only a hint; gameplay has a compact score and pause control', () => {
   const f = fixture();
+  const visible = () => f.controls.group.children.filter(panel => panel.visible).map(panel => panel.name).sort();
   f.controls.update({ ready: true });
-  assert.equal(f.pick('start'), 'start');
+  assert.deepEqual(visible(), ['hint']);
+  assert.equal(f.pick('start'), null);
+  f.controls.update({ ready: true, placed: true, status: 'playing', swipeUsed: true });
+  assert.deepEqual(visible(), ['pause', 'score']);
+  assert.equal(f.pick('pause'), 'pause');
   assert.equal(f.pick('restart'), null);
-  assert.equal(f.pick('up'), null);
-  f.controls.update({ ready: true, placed: true, status: 'playing' });
-  assert.equal(f.pick('start'), 'pause');
-  assert.equal(f.pick('restart'), 'restart');
-  assert.equal(f.pick('up'), 'up');
-  assert.equal(f.pick('left'), 'left');
   f.controls.update({ ready: true, placed: true, status: 'paused' });
   assert.equal(f.pick('start'), 'start');
   assert.equal(f.pick('reposition'), 'reposition');
-  assert.equal(f.pick('left'), 'smaller', 'Paused layout replaces steering with size controls');
+  assert.equal(f.pick('restart'), 'restart');
   f.controls.update({ ready: false, placed: true, status: 'paused' });
   assert.equal(f.pick('start'), null);
   f.controls.dispose();

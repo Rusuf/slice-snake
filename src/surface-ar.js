@@ -218,7 +218,7 @@ export async function startSurfaceSession({ sessionPromise, view, overlay, signa
         // Keep exactly the already-rendered preview transform on the placement tap.
         cancelSurface();
         reportTracking(true);
-        onStatus('Board placed · use the 3D arrows to steer');
+        onStatus('Board placed · swipe to steer');
         return true;
       },
       resize(delta) {

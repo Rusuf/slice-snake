@@ -391,7 +391,7 @@ html:has(body.surface-mode), body.surface-mode, body:xr-overlay { background: tr
 footer .hand-button { min-height: 24px; padding: 0; font-size: inherit; }
 
 
-/* Spatial controls occupy the board's world space, leaving the camera unobstructed. */
+/* Compact spatial UI leaves the camera clear; screen controls are an optional alternative. */
 .spatial-ar .scorebar, .spatial-ar .control-panel, .spatial-ar .overlay,
 .spatial-ar .surface-tools, .spatial-ar .ar-status { display: none; }
 .spatial-ar .arcade { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
@@ -404,3 +404,8 @@ footer .hand-button { min-height: 24px; padding: 0; font-size: inherit; }
   .surface-mode .wordmark .brand-divider, .surface-mode .game-wordmark { display: none; }
   .surface-mode .mode-button { font-size: 8px; padding-inline: 8px; }
 }
+
+/* Keep only the small exit and controls actions above immersive play. */
+.surface-mode .masthead { justify-content: flex-end; height: 44px; }
+.surface-mode .masthead .wordmark { display: none; }
+.surface-mode .masthead .mode-button { background: rgb(20 38 27 / 65%); color: #fff8eb; border: 0; font-size: 10px; }
