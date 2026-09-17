@@ -11,7 +11,7 @@ const ui = {
   speed: element('speed'), levelName: element('level-name'), levelHelp: element('level-help'), score: element('score'), best: element('best'), status: element('status'),
   joystick: element('joystick'), handedness: element('handedness'),
   arToggle: element('ar-toggle'), arStatus: element('ar-status'), arCard: element('ar-card-link'),
-  arChooser: element('ar-chooser'), surfaceButton: element('surface-ar'), imageButton: element('image-ar'), eighthWallButton: element('eighth-wall-ar'), arCancel: element('ar-cancel'),
+  arChooser: element('ar-chooser'), arOptions: element('ar-options'), surfaceButton: element('surface-ar'), imageButton: element('image-ar'), eighthWallButton: element('eighth-wall-ar'), arCancel: element('ar-cancel'),
   surfaceTools: element('surface-tools'), smaller: element('board-smaller'), larger: element('board-larger'), size: element('board-size'), reposition: element('reposition'),
   players: element('players'), share: element('share-score'), scoreLabel: element('score-label'), bestLabel: element('best-label'),
 };
@@ -75,6 +75,7 @@ function syncScore() {
 
 function syncControls() {
   const playing = game.status === 'playing' && !fault;
+  document.body.classList.toggle('surface-scanning', arRequested && arKind === 'surface' && !arPlaced);
   const active = ['playing', 'paused'].includes(game.status) && !fault;
   ui.overlay.hidden = playing;
   ui.pause.disabled = !active || (arRequested && !arTracked);
@@ -92,7 +93,7 @@ function syncControls() {
   ui.start.disabled = !scene || (!fault && arRequested && waiting);
   ui.arCard.hidden = !arRequested || !['image', 'eighth-wall'].includes(arKind);
   ui.arCard.href = arKind === 'eighth-wall' ? './eighth-wall-target.html' : './target.html';
-  ui.surfaceTools.hidden = !arRequested || arKind !== 'surface';
+  ui.surfaceTools.hidden = !arRequested || arKind !== 'surface' || !arPlaced || playing;
   ui.reposition.disabled = !arPlaced;
   ui.smaller.disabled = ui.larger.disabled = !arSession;
   ui.arStatus.hidden = !arRequested;
@@ -166,7 +167,7 @@ function tick(time) {
 
 function play({ restart = false } = {}) {
   if (fault) { window.location.reload(); return; }
-  if (arKind === 'surface' && !arPlaced) { arSession?.place(); return; }
+  if (arKind === 'surface' && !arPlaced && !arSession?.place()) return;
   if (!scene || (arRequested && !arTracked) || game.status === 'playing' && !restart) return;
   stopClock();
   if (!restart && ['over', 'won'].includes(game.status)) advanceMatch(match);
@@ -272,15 +273,16 @@ function exitAR() {
 }
 function scanningSurface() {
   showOverlay('SURFACE AR', 'Place your board.',
-    arCanPlace ? 'Align the square with your table or paper, then place the board.' : 'Move your phone slowly over a well-lit, flat surface.',
-    arCanPlace ? 'PLACE BOARD ↗' : 'FINDING SURFACE…');
+    arCanPlace ? 'Line up the square, then place your board and start playing.' : 'Point at a well-lit table or floor and move your phone slowly.',
+    arCanPlace ? 'PLACE & PLAY ↗' : 'FINDING SURFACE…');
 }
 on(ui.arToggle, 'click', () => {
   if (arRequested) exitAR();
-  else {
-    pause({ focus: false });
-    ui.arChooser.showModal();
-  }
+  else beginAR('surface');
+});
+on(ui.arOptions, 'click', () => {
+  pause({ focus: false });
+  ui.arChooser.showModal();
 });
 on(ui.arCancel, 'click', () => ui.arChooser.close());
 on(ui.surfaceButton, 'click', () => { ui.arChooser.close(); beginAR('surface'); });
@@ -340,7 +342,7 @@ async function beginAR(kind) {
   };
   try {
     if (kind === 'surface') {
-      if (!navigator.xr?.requestSession) throw new Error('Surface AR needs an ARCore-supported Android phone with Google Play Services for AR. Card tracking and normal 3D are still available.');
+      if (!navigator.xr?.requestSession) throw new Error('Surface placement needs a supported Android phone and browser. Keep playing in 3D, or open Other AR options below.');
       // Request immediately on the button gesture, before downloading another module.
       const sessionPromise = navigator.xr.requestSession('immersive-ar', {
         requiredFeatures: ['hit-test', 'dom-overlay'], domOverlay: { root: document.body },
@@ -376,7 +378,7 @@ async function beginAR(kind) {
     if (currentAttempt.signal.aborted) return;
     exitAR();
     const message = error.name === 'NotSupportedError'
-      ? 'Surface AR is unavailable on this device. Try Card tracking, or continue in 3D.'
+      ? 'Surface placement is unavailable on this device. Keep playing in 3D, or open Other AR options below.'
       : error.message || 'Camera mode could not start. Try Chrome on Android.';
     showOverlay('CAMERA UNAVAILABLE', 'Keep playing in 3D.', message, 'PLAY IN 3D ↗');
   }

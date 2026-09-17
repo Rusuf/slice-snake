@@ -372,3 +372,19 @@ html:has(body.surface-mode), body.surface-mode, body:xr-overlay { background: tr
   .camera-mode .arcade { grid-template-columns: minmax(0, 1fr) 182px; grid-template-rows: minmax(0, 1fr); }
   .camera-mode .control-panel { grid-column: 2; grid-row: 1; }
 }
+
+
+/* Surface placement needs a clear camera view before the game controls appear. */
+.surface-scanning .scorebar, .surface-scanning .control-panel { display: none; }
+.surface-scanning .arcade { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.surface-scanning .ar-status { top: 12px; }
+.surface-mode .arcade:has(.overlay[hidden]) #speed,
+.surface-mode .arcade:has(.overlay[hidden]) #players { display: none; }
+.surface-mode .arcade:has(.overlay[hidden]) .control-panel { background: transparent; border-color: transparent; }
+.surface-mode .arcade:has(.overlay[hidden]) .hand-button {
+  padding-inline: 10px;
+  color: #fff8eb;
+  background: rgb(20 38 27 / 82%);
+  border-radius: 5px;
+}
+footer .hand-button { min-height: 24px; padding: 0; font-size: inherit; }
