@@ -1,4 +1,4 @@
-import { Matrix4, Vector3, Quaternion, BufferGeometry, LineLoop, LineBasicMaterial } from 'three';
+import { Matrix4, Vector3, Quaternion, Group, Mesh, BoxGeometry, MeshBasicMaterial } from 'three';
 
 const BOARD_WIDTH = 18.4;
 const BOARD_SCALE = new Vector3();
@@ -10,14 +10,16 @@ export function surfaceBoardMatrix(position, viewer, size, target = new Matrix4(
 }
 
 /** sessionPromise must be created directly in the user's click handler. */
-export async function startSurfaceSession({ sessionPromise, view, overlay, signal, onStatus, onTracking, onPlacement, onFrame, onEnd }) {
+export async function startSurfaceSession({ sessionPromise, view, overlay, signal, onStatus, onTracking, onPlacement, onFrame, onEnd, onError = () => {} }) {
   let session;
   let initialized = false;
   let ending = null;
   const placementViewer = new Vector3();
   const viewer = new Vector3();
   const center = new Vector3();
-  let boardMatrix;
+  const targetCenter = new Vector3();
+  const liftedCenter = new Vector3();
+  const boardMatrix = new Matrix4();
   let viewerSpace;
   let hitRequest = 0;
   let hitSource;
@@ -25,22 +27,31 @@ export async function startSurfaceSession({ sessionPromise, view, overlay, signa
   let placed = false;
   let tracked = false;
   let canPlace = false;
+  let previewVisible = false;
   let size = .24;
   let position = null;
   let lastHit = null;
   let lastHitTime = -Infinity;
   let lastQueryTime = -Infinity;
+  let lastFrameTime = null;
+  let lostSince = null;
   let placementKind = null;
   const forward = new Vector3();
   const orientation = new Quaternion();
   let baseSpace;
   const { renderer, scene, camera } = view.getXRContext();
-  const outline = new BufferGeometry().setFromPoints([
-    new Vector3(-.5, .004, -.5), new Vector3(.5, .004, -.5),
-    new Vector3(.5, .004, .5), new Vector3(-.5, .004, .5),
-  ]);
-  const material = new LineBasicMaterial({ color: 0x19eb83, depthTest: false });
-  const guide = new LineLoop(outline, material);
+  // A thick, raised frame remains legible against both dark and light surfaces.
+  const outline = new BoxGeometry(1.04, .012, .014);
+  const material = new MeshBasicMaterial({ color: 0x19eb83, depthTest: false });
+  const guide = new Group();
+  for (const side of [-1, 1]) {
+    const horizontal = new Mesh(outline, material);
+    horizontal.position.set(0, .006, side * .52);
+    const vertical = new Mesh(outline, material);
+    vertical.position.set(side * .52, .006, 0);
+    vertical.rotation.y = Math.PI / 2;
+    guide.add(horizontal, vertical);
+  }
   guide.matrixAutoUpdate = false;
   guide.visible = false;
   guide.frustumCulled = false;
@@ -56,19 +67,33 @@ export async function startSurfaceSession({ sessionPromise, view, overlay, signa
       onPlacement(value, kind);
     }
   }
+  function transformBoard(at, facing) {
+    // The feet, rather than the middle of the box, rest on the target surface.
+    liftedCenter.copy(at).y += 1.44 * size / BOARD_WIDTH;
+    surfaceBoardMatrix(liftedCenter, facing, size, boardMatrix);
+    view.trackAR(boardMatrix, true);
+    previewVisible = true;
+  }
+  function cancelSurface() {
+    hitRequest++;
+    const source = hitSource;
+    hitSource = null;
+    try { source?.cancel(); } catch { /* An ended XR session may already have cancelled it. */ }
+  }
   async function findSurface() {
     const request = ++hitRequest;
     const source = await session.requestHitTestSource({ space: viewerSpace });
-    if (stopped || request !== hitRequest) { source.cancel(); return; }
+    if (stopped || request !== hitRequest) {
+      try { source.cancel(); } catch { /* Session already ended. */ }
+      return;
+    }
     hitSource = source;
   }
   function suppressSelection(event) { event.preventDefault(); }
   function cleanup() {
     if (stopped) return;
     stopped = true;
-    hitRequest++;
-    hitSource?.cancel();
-    hitSource = null;
+    cancelSurface();
     renderer.setAnimationLoop(null);
     renderer.xr.enabled = false;
     scene.remove(guide);
@@ -92,10 +117,10 @@ export async function startSurfaceSession({ sessionPromise, view, overlay, signa
   try {
     session = await sessionPromise;
     if (stopped || signal.aborted) { await session.end(); assertActive(); }
-    view.enterAR();
+    view.enterAR({ externalFrames: true, solidBoard: true });
+    view.setARPreview(true);
     renderer.xr.enabled = true;
     renderer.xr.setReferenceSpaceType('local');
-    // 80% per axis requests 36% fewer scene pixels; DOM controls stay crisp.
     renderer.xr.setFramebufferScaleFactor(.8);
     await renderer.xr.setSession(session);
     assertActive();
@@ -103,61 +128,83 @@ export async function startSurfaceSession({ sessionPromise, view, overlay, signa
     baseSpace = renderer.xr.getReferenceSpace();
     viewerSpace = await session.requestReferenceSpace('viewer');
     assertActive();
-    // A slow or unavailable hit-test service must not block manual placement.
     findSurface().catch(() => {
-      if (!stopped) onStatus('Surface detection unavailable · place the preview manually');
+      if (!stopped && !placed) onStatus('Surface detection unavailable · place the preview manually');
     });
     overlay.addEventListener('beforexrselect', suppressSelection);
     initialized = true;
-    onStatus('Point at a table or floor · move slowly');
+    onStatus('Aim the board · tap it or Place & Play');
 
     renderer.setAnimationLoop((time, frame) => {
       if (stopped || !frame) return;
-      const pose = frame.getViewerPose(baseSpace);
-      if (!pose || session.visibilityState !== 'visible') {
-        guide.visible = false;
-        lastHit = null;
-        reportPlacement(false);
-        if (tracked) view.trackAR(null, false);
-        reportTracking(false);
-      } else {
-        if (!placed) {
-          viewer.copy(pose.transform.position);
-          // Keep a recent result through short detection gaps, including the tap.
-          if (time - lastQueryTime >= 50) {
-            lastQueryTime = time;
-            for (const result of hitSource ? frame.getHitTestResults(hitSource) : []) {
-              const hit = result.getPose(baseSpace);
-              if (hit && hit.transform.matrix[5] > .9) {
-                lastHit = hit;
-                lastHitTime = time;
-                break;
+      try {
+        const delta = lastFrameTime === null ? 16 : Math.max(0, Math.min(time - lastFrameTime, 100));
+        lastFrameTime = time;
+        const pose = frame.getViewerPose(baseSpace);
+        if (!pose || session.visibilityState !== 'visible') {
+          lostSince ??= time;
+          guide.visible = false;
+          lastHit = null;
+          reportPlacement(false);
+          // Pause immediately, but don't flash the board off for one missing pose.
+          if (previewVisible && (!placed || time - lostSince > 500 || session.visibilityState !== 'visible')) {
+            view.trackAR(null, false);
+            previewVisible = false;
+          }
+          reportTracking(false);
+        } else {
+          lostSince = null;
+          view.layoutARControls(pose);
+          if (!placed) {
+            viewer.copy(pose.transform.position);
+            if (time - lastQueryTime >= 50) {
+              lastQueryTime = time;
+              try {
+                for (const result of hitSource ? frame.getHitTestResults(hitSource) : []) {
+                  const hit = result.getPose(baseSpace);
+                  if (!hit || hit.transform.matrix[5] <= .9) continue;
+                  targetCenter.copy(hit.transform.position);
+                  const distance = targetCenter.distanceTo(viewer);
+                  if (distance < .15 || distance > 2.5 || targetCenter.y > viewer.y - .05) continue;
+                  lastHit = hit;
+                  lastHitTime = time;
+                  break;
+                }
+              } catch {
+                cancelSurface();
+                onStatus('Surface detection interrupted · manual placement is still available');
               }
             }
+            const detected = lastHit && time - lastHitTime <= 1500;
+            if (detected) targetCenter.copy(lastHit.transform.position);
+            else {
+              orientation.copy(pose.transform.orientation);
+              forward.set(0, 0, -1).applyQuaternion(orientation);
+              targetCenter.copy(viewer).addScaledVector(forward, .65);
+              targetCenter.y = Math.min(targetCenter.y, viewer.y - .2);
+            }
+            const kind = detected ? 'surface' : 'manual';
+            if (!previewVisible || placementKind !== kind) center.copy(targetCenter);
+            else center.lerp(targetCenter, 1 - Math.exp(-delta / 65));
+            guide.visible = true;
+            material.color.setHex(detected ? 0x19eb83 : 0xffc857);
+            surfaceBoardMatrix(center, viewer, size * BOARD_WIDTH, guide.matrix);
+            guide.matrixWorldNeedsUpdate = true;
+            transformBoard(center, viewer);
+            reportPlacement(true, kind);
+          } else if (!tracked) {
+            view.trackAR(boardMatrix, true);
+            previewVisible = true;
+            reportTracking(true);
           }
-          const detected = lastHit && time - lastHitTime <= 1500;
-          if (detected) {
-            center.copy(lastHit.transform.position);
-          } else {
-            // Explicit manual fallback: a level preview in front of the camera.
-            // This is an estimate, not a claim that a physical surface was found.
-            orientation.copy(pose.transform.orientation);
-            forward.set(0, 0, -1).applyQuaternion(orientation);
-            center.copy(viewer).addScaledVector(forward, .65);
-            center.y = Math.min(center.y, viewer.y - .2);
-          }
-          guide.visible = true;
-          material.color.setHex(detected ? 0x19eb83 : 0xffc857);
-          surfaceBoardMatrix(center, viewer, size * BOARD_WIDTH, guide.matrix);
-          guide.matrixWorldNeedsUpdate = true;
-          reportPlacement(true, detected ? 'surface' : 'manual');
-        } else if (!tracked) {
-          view.trackAR(boardMatrix, true);
-          reportTracking(true);
         }
+        onFrame(time);
+        renderer.render(scene, camera);
+      } catch (error) {
+        // A frame failure must produce a recoverable UI, never a silent blank camera.
+        end();
+        onError(error);
       }
-      onFrame(time);
-      renderer.render(scene, camera);
     });
     return {
       stop: end,
@@ -167,35 +214,30 @@ export async function startSurfaceSession({ sessionPromise, view, overlay, signa
         placementViewer.copy(viewer);
         placed = true;
         guide.visible = false;
-        boardMatrix = surfaceBoardMatrix(position, placementViewer, size);
-        view.trackAR(boardMatrix, true);
-        // Placement is fixed in local space. Stop surface queries until repositioning.
-        hitRequest++;
-        hitSource?.cancel();
-        hitSource = null;
+        view.setARPreview(false);
+        // Keep exactly the already-rendered preview transform on the placement tap.
+        cancelSurface();
         reportTracking(true);
-        onStatus('Board placed · drag the joystick to steer');
+        onStatus('Board placed · use the 3D arrows to steer');
         return true;
       },
       resize(delta) {
         size = Math.max(.15, Math.min(.45, Math.round((size + delta) * 100) / 100));
-        if (placed && !stopped) {
-          boardMatrix = surfaceBoardMatrix(position, placementViewer, size);
-          view.trackAR(boardMatrix, tracked);
-        }
+        if (placed && !stopped && tracked) transformBoard(position, placementViewer);
         return Math.round(size * 100);
       },
       reposition() {
         if (stopped || !placed) return;
         placed = false;
+        view.setARPreview(true);
         reportPlacement(false);
         lastHit = null;
         lastHitTime = lastQueryTime = -Infinity;
-        view.trackAR(null, false);
+        previewVisible = false;
         reportTracking(false);
-        onStatus('Find a flat surface for the square guide');
+        onStatus('Aim the board · tap it or Place & Play');
         findSurface().catch(() => {
-          if (!stopped) onStatus('Surface detection unavailable · place the preview manually');
+          if (!stopped && !placed) onStatus('Surface detection unavailable · place the preview manually');
         });
       },
     };

@@ -19,3 +19,19 @@ test('all board corners fit the fixed perspective camera across viewport shapes'
     }
   }
 });
+
+test('AR resets desktop clipping so a board within arm’s reach stays visible', async () => {
+  const { configureARCamera } = await import('../src/board-layout.js');
+  for (const aspect of [.45, .75, 1, 1.5, 2.8]) {
+    const camera = new PerspectiveCamera(38, 1, .1, 120);
+    fitBoardCamera(camera, aspect);
+    configureARCamera(camera);
+    for (const distance of [.15, .65, 2.5]) {
+      const projected = new Vector3(0, 0, -distance).project(camera);
+      assert.ok(projected.z > -1 && projected.z < 1, `AR board clipped at ${distance}m after aspect ${aspect}`);
+    }
+    fitBoardCamera(camera, aspect);
+    const corner = new Vector3(...BOARD_BOUNDS.max).project(camera);
+    assert.ok(corner.z > -1 && corner.z < 1, 'Desktop camera restored on exit');
+  }
+});

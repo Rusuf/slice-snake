@@ -20,7 +20,7 @@ test('surface board has physical width and faces the viewer from either side', (
 function fixture() {
   const abort = new AbortController();
   const session = new EventTarget();
-  let ended = 0, cancelled = 0, loop, tracking, ready, kind, time = 0;
+  let ended = 0, cancelled = 0, loop, tracking, ready, kind, time = 0, transform, preview, enterOptions;
   const counts = { hits: 0, requests: 0, transforms: 0, placement: 0, renders: 0 };
   session.end = async () => { ended++; session.dispatchEvent(new Event('end')); };
   session.visibilityState = 'visible';
@@ -31,11 +31,11 @@ function fixture() {
     setAnimationLoop(value) { loop = value; }, render() { counts.renders++; } };
   const options = {
     sessionPromise: Promise.resolve(session), signal: abort.signal, overlay: new EventTarget(),
-    view: { getXRContext: () => ({ scene, renderer, camera: {} }), enterAR() {}, exitAR() {}, trackAR(matrix, visible) { tracking = visible; counts.transforms++; } },
+    view: { getXRContext: () => ({ scene, renderer, camera: {} }), enterAR(value) { enterOptions = value; }, setARPreview(value) { preview = value; }, layoutARControls() {}, exitAR() {}, trackAR(matrix, visible) { tracking = visible; if (matrix) transform = matrix.clone(); counts.transforms++; } },
     onStatus() {}, onTracking() {}, onPlacement(value, type) { ready = value; kind = type; counts.placement++; }, onFrame() {}, onEnd() {},
   };
   return { options, session, abort, scene, renderer, counts, get ended() { return ended; }, get cancelled() { return cancelled; },
-    get tracking() { return tracking; }, get ready() { return ready; }, get kind() { return kind; },
+    get tracking() { return tracking; }, get transform() { return transform; }, get preview() { return preview; }, get enterOptions() { return enterOptions; }, get ready() { return ready; }, get kind() { return kind; },
     frame(hit = true, visible = true, delta = 60) { time += delta; loop(time, { getViewerPose: () => visible ? ({ transform: { position: new Vector3(0, 1, 1), orientation: { x: 0, y: 0, z: 0, w: 1 } } }) : null,
       getHitTestResults: () => { counts.hits++; return hit ? [{ getPose: () => ({ transform: { position: new Vector3(), matrix: new Matrix4().elements } }) }] : []; } }); },
   };
@@ -52,7 +52,7 @@ test('surface placement requires tracking, supports resize and reposition, and c
   assert.equal(ar.resize(10), 45);
   assert.equal(ar.resize(-10), 15);
   ar.reposition();
-  assert.equal(f.tracking, false);
+  assert.equal(f.preview, true);
   assert.equal(ar.place(), false);
   await ar.stop();
   assert.equal(f.ended, 1);
@@ -100,7 +100,8 @@ test('lost tracking is reported once and cannot place using a stale hit', async 
   f.frame(false, false);
   const transforms = f.counts.transforms;
   for (let i = 0; i < 60; i++) f.frame(false, false);
-  assert.equal(f.counts.transforms, transforms);
+  assert.equal(f.counts.transforms, transforms + 1, 'Sustained loss hides the board only once');
+  assert.equal(f.tracking, false);
   f.frame();
   assert.equal(f.tracking, true);
   await ar.stop();
@@ -176,4 +177,45 @@ test('surface queries are throttled while scanning', async () => {
   for (let i = 0; i < 60; i++) f.frame(true, true, 16);
   assert.ok(f.counts.hits <= 20);
   await ar.stop();
+});
+
+
+test('placement locks the already-visible solid board without a transform jump', async () => {
+  const f = fixture(); const ar = await startSurfaceSession(f.options);
+  assert.deepEqual(f.enterOptions, { externalFrames: true, solidBoard: true });
+  f.frame(false);
+  assert.equal(f.tracking, true, 'Full board visible even before detecting a surface');
+  assert.equal(f.preview, true);
+  const preview = f.transform.clone();
+  const transforms = f.counts.transforms;
+  assert.equal(ar.place(), true);
+  assert.equal(f.preview, false);
+  assert.deepEqual(f.transform.elements, preview.elements);
+  assert.equal(f.counts.transforms, transforms, 'Placement does not replace the preview');
+  f.frame(false);
+  assert.deepEqual(f.transform.elements, preview.elements);
+  await ar.stop();
+});
+
+test('a brief pose gap pauses tracking without flashing the placed board off', async () => {
+  const f = fixture(); const ar = await startSurfaceSession(f.options);
+  f.frame(); ar.place();
+  f.frame(false, false, 16);
+  assert.equal(f.tracking, true, 'Keep last rendered board for a brief gap');
+  f.frame(false, false, 600);
+  assert.equal(f.tracking, false, 'Hide after sustained tracking loss');
+  f.frame();
+  assert.equal(f.tracking, true);
+  await ar.stop();
+});
+
+test('frame errors surface through recovery callback instead of leaving a blank session', async () => {
+  const f = fixture();
+  let error;
+  f.options.onError = value => { error = value; };
+  f.options.onFrame = () => { throw new Error('Rendering interrupted'); };
+  await startSurfaceSession(f.options);
+  f.frame();
+  assert.equal(error.message, 'Rendering interrupted');
+  assert.equal(f.ended, 1);
 });

@@ -36,3 +36,14 @@ export function fitBoardCamera(camera, aspect) {
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld();
 }
+
+
+/** Desktop fitting uses scene units; handheld AR uses metres. Never inherit its near plane. */
+export function configureARCamera(camera) {
+  camera.near = .01;
+  camera.far = 30;
+  camera.position.set(0, 0, 0);
+  camera.quaternion.identity();
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld();
+}

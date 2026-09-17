@@ -11,6 +11,7 @@ const ui = {
   endless: element('endless'), stageLabel: element('stage-label'),
   speed: element('speed'), levelName: element('level-name'), levelHelp: element('level-help'), score: element('score'), best: element('best'), status: element('status'),
   joystick: element('joystick'), handedness: element('handedness'),
+  screenControls: element('screen-controls'),
   arToggle: element('ar-toggle'), arStatus: element('ar-status'), arCard: element('ar-card-link'),
   arChooser: element('ar-chooser'), arOptions: element('ar-options'), surfaceButton: element('surface-ar'), imageButton: element('image-ar'), eighthWallButton: element('eighth-wall-ar'), arCancel: element('ar-cancel'),
   surfaceTools: element('surface-tools'), smaller: element('board-smaller'), larger: element('board-larger'), size: element('board-size'), reposition: element('reposition'),
@@ -41,6 +42,8 @@ let arPlaced = false;
 let arCanPlace = false;
 let arPlacementKind = null;
 let closingAR = false;
+let screenControls = false;
+let boardSize = 24;
 let match = createMatch();
 const challenge = readChallenge(window.location.search);
 let gameMode = challenge?.mode ?? 'classic';
@@ -67,6 +70,16 @@ function stopClock() {
   elapsed = 0;
 }
 
+function syncSpatialControls() {
+  if (arKind !== 'surface') return;
+  scene?.setARControls({
+    score: game.score, best: challenge?.score ?? best, status: game.status,
+    placed: arPlaced, ready: Boolean(arSession) && (arPlaced ? arTracked : arCanPlace),
+    kind: arPlacementKind, size: boardSize, mode: gameMode,
+    player: match.enabled ? match.player : null,
+  });
+}
+
 function syncScore() {
   ui.score.textContent = formatScore(game.score);
   if (game.score > best) {
@@ -74,10 +87,17 @@ function syncScore() {
     ui.best.textContent = formatScore(challenge?.score ?? best);
     writeBestScore(storage, best, gameMode);
   }
+  syncSpatialControls();
 }
 
 function syncControls() {
   const playing = game.status === 'playing' && !fault;
+  const surface = arRequested && arKind === 'surface';
+  const spatialReady = surface && (arPlaced ? arTracked : arCanPlace);
+  document.body.classList.toggle('spatial-ar', spatialReady && !screenControls);
+  ui.screenControls.hidden = !surface;
+  ui.screenControls.setAttribute('aria-pressed', String(screenControls));
+  ui.screenControls.textContent = screenControls ? '3D CONTROLS' : 'SCREEN CONTROLS';
   document.body.classList.toggle('surface-scanning', arRequested && arKind === 'surface' && !arPlaced);
   const active = ['playing', 'paused'].includes(game.status) && !fault;
   ui.overlay.hidden = playing;
@@ -107,6 +127,7 @@ function syncControls() {
   ui.players.disabled = !scene || active || fault;
   ui.scoreLabel.textContent = match.enabled ? `PLAYER ${match.player}` : 'YOUR SCORE';
   ui.share.hidden = !['over', 'won'].includes(game.status) || game.score === 0;
+  syncSpatialControls();
 }
 
 function showOverlay(tag, title, copy, action) {
@@ -279,6 +300,7 @@ function exitAR() {
   arPlaced = false;
   arCanPlace = false;
   arKind = null;
+  spatialTap = null;
   closingAR = true;
   arAbort?.abort();
   const closing = arSession?.stop();
@@ -292,9 +314,10 @@ function exitAR() {
 }
 function scanningSurface() {
   showOverlay('SURFACE AR', 'Place your board.',
-    !arCanPlace ? 'Hold your phone steady to show the placement preview.' : arPlacementKind === 'surface' ? 'Surface found. Place the green square and start playing.' : 'Move slowly to find a surface, or place the amber preview manually. Manual placement may float above the surface.',
+    !arCanPlace ? 'Hold your phone steady to show the placement preview.' : arPlacementKind === 'surface' ? 'Surface found. Tap the 3D board or Place & Play.' : 'Aim the 3D board, then tap to place. Amber means manual placement; green means a surface was found.',
     !arCanPlace ? 'STARTING CAMERA…' : arPlacementKind === 'surface' ? 'PLACE & PLAY ↗' : 'PLACE MANUALLY & PLAY ↗');
 }
+on(ui.screenControls, 'click', () => { screenControls = !screenControls; syncControls(); });
 on(ui.arToggle, 'click', () => {
   if (arRequested) exitAR();
   else beginAR('surface');
@@ -307,8 +330,41 @@ on(ui.arCancel, 'click', () => ui.arChooser.close());
 on(ui.surfaceButton, 'click', () => { ui.arChooser.close(); beginAR('surface'); });
 on(ui.imageButton, 'click', () => { ui.arChooser.close(); beginAR('image'); });
 on(ui.eighthWallButton, 'click', () => { ui.arChooser.close(); beginAR('eighth-wall'); });
-on(ui.smaller, 'click', () => { if (arSession) ui.size.textContent = `${arSession.resize(-.03)} cm`; });
-on(ui.larger, 'click', () => { if (arSession) ui.size.textContent = `${arSession.resize(.03)} cm`; });
+function resizeARBoard(delta) {
+  if (!arSession) return;
+  boardSize = arSession.resize(delta);
+  ui.size.textContent = `${boardSize} cm`;
+  syncSpatialControls();
+}
+on(ui.smaller, 'click', () => resizeARBoard(-.03));
+on(ui.larger, 'click', () => resizeARBoard(.03));
+
+// DOM overlay taps are projected into the XR camera, so raised buttons are real targets.
+let spatialTap = null;
+function spatialAction(action) {
+  if (['up', 'down', 'left', 'right'].includes(action)) turn(game, scene?.directionForScreen(action) ?? action);
+  else {
+    const control = ui[action];
+    if (control && !control.disabled) control.click();
+  }
+}
+on(document, 'pointerdown', event => {
+  if (arKind !== 'surface' || event.button !== 0 || spatialTap || event.target.closest('button, a, .overlay, .control-panel, .surface-tools, .masthead')) return;
+  const action = scene?.pickARAction(event.clientX, event.clientY, window.innerWidth, window.innerHeight);
+  if (!action) return;
+  event.preventDefault();
+  spatialTap = { id: event.pointerId, x: event.clientX, y: event.clientY, action };
+  if (['up', 'down', 'left', 'right'].includes(action)) spatialAction(action);
+});
+on(document, 'pointerup', event => {
+  if (event.pointerId !== spatialTap?.id) return;
+  const tap = spatialTap;
+  spatialTap = null;
+  if (Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > 16 || ['up', 'down', 'left', 'right'].includes(tap.action)) return;
+  event.preventDefault();
+  spatialAction(tap.action);
+});
+on(document, 'pointercancel', () => { spatialTap = null; });
 on(ui.reposition, 'click', () => {
   pause({ focus: false });
   arPlaced = arTracked = arCanPlace = false;
@@ -329,6 +385,7 @@ async function beginAR(kind) {
   document.body.classList.toggle('surface-mode', kind === 'surface');
   ui.arToggle.textContent = 'BACK TO 3D';
   ui.arToggle.setAttribute('aria-pressed', 'true');
+  boardSize = 24;
   ui.size.textContent = '24 cm';
   if (kind === 'surface') scanningSurface();
   else if (kind === 'eighth-wall') showOverlay('8TH WALL · EXPERIMENTAL', 'Find your printed square.', 'Print the prototype card, open this preview on your phone, allow the camera, then point at the artwork.', 'FINDING SQUARE…');

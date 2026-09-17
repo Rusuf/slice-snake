@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SIZE } from './game.js';
-import { fitBoardCamera } from './board-layout.js';
+import { createARControls } from './ar-controls.js';
+import { fitBoardCamera, configureARCamera } from './board-layout.js';
 
 const CENTER = (SIZE - 1) / 2;
 const SNAKE_HEIGHT = .43;
@@ -25,6 +26,11 @@ export function createScene(host, onContextLost) {
   const normalOnly = [];
   let arMode = false;
   let externalFrames = false;
+  let spatialControls;
+  let spatialMode = false;
+  let arPreview = false;
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
   const geometries = new Set();
   const materials = new Set();
   const geometry = value => { geometries.add(value); return value; };
@@ -82,9 +88,9 @@ export function createScene(host, onContextLost) {
   tabletop.castShadow = false;
   scene.add(tabletop);
 
-  const terracotta = material('#b44b32');
-  const cream = material('#eddbb6');
-  const edge = material('#693d2c');
+  const terracotta = material('#a94831', .48);
+  const cream = material('#f5e7c8', .38);
+  const edge = material('#543329', .52);
   normalOnly.push(mesh(bevelBox(18.4, .94, 18.4, .16), terracotta, [0, -.75, 0]));
   normalOnly.push(mesh(bevelBox(18.15, .16, 18.15, .05), edge, [0, -1.24, 0]));
   board.add(mesh(box(16.5, .22, 16.5), cream, [0, -.13, 0]));
@@ -92,6 +98,10 @@ export function createScene(host, onContextLost) {
   for (const x of [-7.5, 7.5]) {
     for (const z of [-7.5, 7.5]) normalOnly.push(mesh(footShape, edge, [x, -1.35, z]));
   }
+
+  // A recessed dark seam and inset lid make the box read as a solid crafted object.
+  normalOnly.push(mesh(bevelBox(18.28, .10, 18.28, .035), edge, [0, -.31, 0]));
+  normalOnly.push(mesh(bevelBox(18.16, .14, 18.16, .045), cream, [0, -.22, 0]));
 
   // The inner rim starts just outside the collision boundary at +/- 8 cells.
   normalOnly.forEach(object => board.add(object));
@@ -102,10 +112,18 @@ export function createScene(host, onContextLost) {
     board.add(mesh(verticalRim, cream, [side * 8.65, .13, 0]));
   }
 
+  const innerEdge = material('#a89368', .55);
+  const innerHorizontal = box(16.22, .07, .10);
+  const innerVertical = box(.10, .07, 16.22);
+  for (const side of [-1, 1]) {
+    board.add(mesh(innerHorizontal, innerEdge, [0, .04, side * 8.08]));
+    board.add(mesh(innerVertical, innerEdge, [side * 8.08, .04, 0]));
+  }
+
   const matrix = new THREE.Matrix4();
-  const tileShape = box(.978, .045, .978);
-  for (const [parity, color] of ['#e4d7ba', '#dacfad'].entries()) {
-    const tiles = new THREE.InstancedMesh(tileShape, material(color), SIZE * SIZE / 2);
+  const tileShape = bevelBox(.965, .055, .965, .014);
+  for (const [parity, color] of ['#f1e5c9', '#d7c49f'].entries()) {
+    const tiles = new THREE.InstancedMesh(tileShape, material(color, .48), SIZE * SIZE / 2);
     let index = 0;
     for (let y = 0; y < SIZE; y++) {
       for (let x = 0; x < SIZE; x++) {
@@ -117,8 +135,8 @@ export function createScene(host, onContextLost) {
     board.add(tiles);
   }
 
-  const green = material('#388454', .4);
-  const darkGreen = material('#215c3c', .4);
+  const green = material('#318958', .3);
+  const darkGreen = material('#164f37', .28);
   const segmentShape = bevelBox(.88, .78, .88, .09);
   const body = new THREE.InstancedMesh(segmentShape, green, SIZE * SIZE - 1);
   body.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -256,17 +274,36 @@ export function createScene(host, onContextLost) {
     },
     enterAR(options = {}) {
       externalFrames = Boolean(options.externalFrames);
+      spatialMode = Boolean(options.solidBoard);
       arMode = true;
       scene.background = null;
       renderer.setClearColor(0x000000, 0);
       renderer.shadowMap.enabled = false;
       tabletop.visible = false;
-      normalOnly.forEach(object => { object.visible = false; });
+      normalOnly.forEach(object => { object.visible = Boolean(options.solidBoard); });
+      if (options.solidBoard) {
+        spatialControls ??= createARControls();
+        scene.add(spatialControls.group);
+        spatialControls.group.visible = true;
+      }
       board.matrixAutoUpdate = false;
       board.visible = false;
-      camera.position.set(0, 0, 0);
-      camera.quaternion.identity();
-      camera.updateMatrixWorld();
+      configureARCamera(camera);
+    },
+    layoutARControls(pose) { spatialControls?.layout(pose); },
+    setARControls(state) { spatialControls?.update(state); },
+    setARPreview(value) { arPreview = value; },
+    pickARAction(clientX, clientY, width, height) {
+      if (!arMode || !board.visible || !renderer.xr.isPresenting || !width || !height) return null;
+      const xrCamera = renderer.xr.getCamera();
+      const activeCamera = xrCamera.cameras[0] ?? xrCamera;
+      pointer.set(clientX / width * 2 - 1, 1 - clientY / height * 2);
+      raycaster.setFromCamera(pointer, activeCamera);
+      const action = spatialControls?.pick(raycaster);
+      if (action) return action;
+      // The whole board is also a placement target, not just the small button.
+      if (arPreview && raycaster.intersectObjects(board.children, true).length) return 'start';
+      return null;
     },
     setARProjection(elements) {
       camera.projectionMatrix.fromArray(elements);
@@ -275,6 +312,7 @@ export function createScene(host, onContextLost) {
     trackAR(matrix, visible) {
       if (!arMode) return;
       board.visible = visible;
+      if (spatialControls) spatialControls.group.visible = visible && spatialMode;
       if (matrix) board.matrix.copy(matrix);
       board.matrixWorldNeedsUpdate = true;
     },
@@ -282,6 +320,9 @@ export function createScene(host, onContextLost) {
     exitAR() {
       externalFrames = false;
       arMode = false;
+      spatialMode = false;
+      arPreview = false;
+      if (spatialControls) spatialControls.group.visible = false;
       scene.background = new THREE.Color('#ece4d5');
       renderer.shadowMap.enabled = true;
       tabletop.visible = true;
@@ -326,6 +367,7 @@ export function createScene(host, onContextLost) {
       observer.disconnect();
       renderer.domElement.removeEventListener('webglcontextlost', handleContextLost);
       scene.traverse(object => { if (object.isInstancedMesh) object.dispose(); });
+      spatialControls?.dispose();
       geometries.forEach(value => value.dispose());
       materials.forEach(value => value.dispose());
       sun.shadow.dispose();

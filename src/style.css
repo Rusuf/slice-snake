@@ -389,3 +389,18 @@ html:has(body.surface-mode), body.surface-mode, body:xr-overlay { background: tr
   border-radius: 5px;
 }
 footer .hand-button { min-height: 24px; padding: 0; font-size: inherit; }
+
+
+/* Spatial controls occupy the board's world space, leaving the camera unobstructed. */
+.spatial-ar .scorebar, .spatial-ar .control-panel, .spatial-ar .overlay,
+.spatial-ar .surface-tools, .spatial-ar .ar-status { display: none; }
+.spatial-ar .arcade { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.surface-mode .stage { touch-action: none; }
+.surface-mode .masthead { gap: 6px; }
+.surface-mode .wordmark { margin-right: auto; }
+.surface-mode .mode-button { background: #f5f0e5; min-height: 44px; }
+.surface-mode .mode-button[aria-pressed='true'] { background: var(--brand-green); }
+@media (max-width: 420px) {
+  .surface-mode .wordmark .brand-divider, .surface-mode .game-wordmark { display: none; }
+  .surface-mode .mode-button { font-size: 8px; padding-inline: 8px; }
+}
