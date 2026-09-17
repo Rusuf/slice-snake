@@ -378,6 +378,7 @@ html:has(body.surface-mode), body.surface-mode, body:xr-overlay { background: tr
 .surface-scanning .scorebar, .surface-scanning .control-panel { display: none; }
 .surface-scanning .arcade { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 .surface-scanning .ar-status { top: 12px; }
+.surface-mode .arcade:has(.overlay[hidden]) #endless,
 .surface-mode .arcade:has(.overlay[hidden]) #speed,
 .surface-mode .arcade:has(.overlay[hidden]) #players { display: none; }
 .surface-mode .arcade:has(.overlay[hidden]) .control-panel { background: transparent; border-color: transparent; }

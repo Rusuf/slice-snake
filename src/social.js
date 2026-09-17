@@ -6,15 +6,17 @@ export function readChallenge(search) {
   const score = Number(params.get('challenge'));
   const level = Number(params.get('level'));
   if (!Number.isInteger(score) || score <= 0 || score > MAX_SCORE || score % 10 || !LEVELS.has(level)) return null;
-  return { score, level };
+  if (params.has('mode') && !['classic', 'endless'].includes(params.get('mode'))) return null;
+  return params.get('mode') === 'endless' ? { score, level, mode: 'endless' } : { score, level };
 }
 
-export function challengeURL(location, score, level) {
+export function challengeURL(location, score, level, mode = 'classic') {
   const url = new URL(location);
   url.search = '';
   url.hash = '';
   url.searchParams.set('challenge', String(score));
   url.searchParams.set('level', String(level));
+  if (mode === 'endless') url.searchParams.set('mode', mode);
   return url.href;
 }
 

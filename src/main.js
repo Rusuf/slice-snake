@@ -8,6 +8,7 @@ const ui = {
   arcade: element('arcade'), board: element('canvas-host'), overlay: element('overlay'),
   tag: element('overlay-tag'), title: element('overlay-title'), copy: element('overlay-copy'),
   start: element('start'), pause: element('pause'), restart: element('restart'),
+  endless: element('endless'), stageLabel: element('stage-label'),
   speed: element('speed'), levelName: element('level-name'), levelHelp: element('level-help'), score: element('score'), best: element('best'), status: element('status'),
   joystick: element('joystick'), handedness: element('handedness'),
   arToggle: element('ar-toggle'), arStatus: element('ar-status'), arCard: element('ar-card-link'),
@@ -38,9 +39,11 @@ let arSession;
 let arKind = null;
 let arPlaced = false;
 let arCanPlace = false;
+let arPlacementKind = null;
 let closingAR = false;
 let match = createMatch();
 const challenge = readChallenge(window.location.search);
+let gameMode = challenge?.mode ?? 'classic';
 if (challenge) {
   ui.speed.querySelector(`input[value="${challenge.level}"]`).checked = true;
   ui.levelName.textContent = LEVELS.get(challenge.level);
@@ -49,7 +52,7 @@ if (challenge) {
 const joystick = bindJoystick(ui.joystick, direction => steer(game, scene?.directionForScreen(direction) ?? direction), listeners.signal);
 
 try { storage = window.localStorage; } catch { /* Storage is optional. */ }
-let best = readBestScore(storage);
+let best = readBestScore(storage, gameMode);
 const formatScore = value => String(value).padStart(3, '0');
 ui.best.textContent = formatScore(challenge?.score ?? best);
 
@@ -69,7 +72,7 @@ function syncScore() {
   if (game.score > best) {
     best = game.score;
     ui.best.textContent = formatScore(challenge?.score ?? best);
-    writeBestScore(storage, best);
+    writeBestScore(storage, best, gameMode);
   }
 }
 
@@ -85,6 +88,10 @@ function syncControls() {
   ui.pause.title = pauseLabel;
   const sharedLevel = match.enabled && match.scores.length === 1;
   ui.speed.disabled = playing || fault || sharedLevel;
+  ui.endless.disabled = active || fault || sharedLevel || Boolean(challenge);
+  ui.endless.setAttribute('aria-pressed', String(gameMode === 'endless'));
+  ui.endless.textContent = gameMode === 'endless' ? 'Endless mode · on' : 'Endless mode';
+  ui.stageLabel.textContent = gameMode === 'endless' ? '16 × 16 · ENDLESS PLAY' : '16 × 16 · CLASSIC PLAY';
   ui.levelHelp.textContent = fault ? 'Game unavailable' : sharedLevel ? 'Same level for both' : playing ? 'Pause to change' : 'Choose your speed';
   ui.restart.disabled = !scene || fault || game.status === 'ready' || (arRequested && !arTracked);
   joystick.setEnabled(playing);
@@ -171,14 +178,14 @@ function play({ restart = false } = {}) {
   if (!scene || (arRequested && !arTracked) || game.status === 'playing' && !restart) return;
   stopClock();
   if (!restart && ['over', 'won'].includes(game.status)) advanceMatch(match);
-  if (restart || game.status !== 'paused') game = createGame();
+  if (restart || game.status !== 'paused') game = createGame(Math.random, gameMode);
   const selected = Number(ui.speed.querySelector('input:checked')?.value);
   interval = LEVELS.has(selected) ? selected : 140;
   game.status = 'playing';
   scene.update(game);
   syncScore();
   syncControls();
-  ui.status.textContent = 'Game running. Collect bites and avoid the edges and your tail.';
+  ui.status.textContent = gameMode === 'endless' ? 'Game running. Cross an edge to wrap around. Avoid your tail.' : 'Game running. Collect bites and avoid the edges and your tail.';
   ui.board.focus({ preventScroll: true });
   if (arKind !== 'surface' && arKind !== 'eighth-wall') frame = requestAnimationFrame(tick);
 }
@@ -206,6 +213,18 @@ on(ui.speed, 'change', () => {
   const selected = Number(ui.speed.querySelector('input:checked')?.value);
   ui.levelName.textContent = LEVELS.get(selected) ?? 'CLASSIC';
 });
+on(ui.endless, 'click', () => {
+  if (ui.endless.disabled) return;
+  gameMode = gameMode === 'endless' ? 'classic' : 'endless';
+  match = createMatch(match.enabled);
+  game = createGame(Math.random, gameMode);
+  best = readBestScore(storage, gameMode);
+  ui.best.textContent = formatScore(best);
+  scene?.update(game);
+  syncScore();
+  showReadyAction();
+  syncControls();
+});
 on(ui.handedness, 'click', () => {
   const left = ui.handedness.getAttribute('aria-pressed') !== 'true';
   ui.handedness.setAttribute('aria-pressed', String(left));
@@ -217,14 +236,14 @@ on(ui.players, 'click', () => {
   match = createMatch(!match.enabled);
   ui.players.setAttribute('aria-pressed', String(match.enabled));
   ui.players.textContent = match.enabled ? 'Solo mode' : '2 players';
-  game = createGame();
+  game = createGame(Math.random, gameMode);
   scene.update(game);
   syncScore();
   showReadyAction();
   syncControls();
 });
 on(ui.share, 'click', async () => {
-  const url = challengeURL(window.location.href, game.score, interval);
+  const url = challengeURL(window.location.href, game.score, interval, gameMode);
   const text = `I scored ${game.score} in Slice Snake. Can you beat it?`;
   try {
     if (navigator.share) await navigator.share({ title: 'Slice Snake', text, url });
@@ -250,7 +269,7 @@ function showReadyAction() {
   } else if (match.enabled) {
     showOverlay('2 PLAYERS', 'Player 1, you’re up.', 'Take turns on this phone. Highest score wins.', 'PLAYER 1 · PLAY ↗');
   } else {
-    showOverlay('HOT & READY', 'Feed your competitive side.', 'Drag the joystick to collect pizza. Avoid the edges and your tail.', 'LET’S PLAY ↗');
+    showOverlay('HOT & READY', 'Feed your competitive side.', gameMode === 'endless' ? 'Collect pizza. Cross an edge to come out the other side. Avoid your tail.' : 'Drag the joystick to collect pizza. Avoid the edges and your tail.', 'LET’S PLAY ↗');
   }
 }
 function exitAR() {
@@ -273,8 +292,8 @@ function exitAR() {
 }
 function scanningSurface() {
   showOverlay('SURFACE AR', 'Place your board.',
-    arCanPlace ? 'Line up the square, then place your board and start playing.' : 'Point at a well-lit table or floor and move your phone slowly.',
-    arCanPlace ? 'PLACE & PLAY ↗' : 'FINDING SURFACE…');
+    !arCanPlace ? 'Hold your phone steady to show the placement preview.' : arPlacementKind === 'surface' ? 'Surface found. Place the green square and start playing.' : 'Move slowly to find a surface, or place the amber preview manually. Manual placement may float above the surface.',
+    !arCanPlace ? 'STARTING CAMERA…' : arPlacementKind === 'surface' ? 'PLACE & PLAY ↗' : 'PLACE MANUALLY & PLAY ↗');
 }
 on(ui.arToggle, 'click', () => {
   if (arRequested) exitAR();
@@ -345,7 +364,7 @@ async function beginAR(kind) {
       if (!navigator.xr?.requestSession) throw new Error('Surface placement needs a supported Android phone and browser. Keep playing in 3D, or open Other AR options below.');
       // Request immediately on the button gesture, before downloading another module.
       const sessionPromise = navigator.xr.requestSession('immersive-ar', {
-        requiredFeatures: ['hit-test', 'dom-overlay'], domOverlay: { root: document.body },
+        requiredFeatures: ['dom-overlay'], optionalFeatures: ['hit-test'], domOverlay: { root: document.body },
       });
       sessionPromise.catch(() => {});
       const { startSurfaceSession } = await import('./surface-ar.js').catch(error => {
@@ -356,9 +375,10 @@ async function beginAR(kind) {
       arSession = await startSurfaceSession({
         ...callbacks, sessionPromise, overlay: document.body,
         onFrame: time => tick(time),
-        onPlacement: ready => {
+        onPlacement: (ready, kind) => {
           if (currentAttempt.signal.aborted || arPlaced) return;
           arCanPlace = ready;
+          arPlacementKind = kind;
           scanningSurface();
           syncControls();
         },
@@ -431,8 +451,7 @@ try {
     food: { x: 12, y: 5 },
   });
   ui.start.disabled = false;
-  showOverlay('HOT & READY', 'Feed your competitive side.',
-    'Collect bites. Keep moving. Stay clear of the edges and your tail.', 'LET’S PLAY ↗');
+  showReadyAction();
   syncControls();
 } catch (error) {
   console.error('Unable to initialize the 3D scene:', error);

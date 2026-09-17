@@ -20,7 +20,7 @@ test('surface board has physical width and faces the viewer from either side', (
 function fixture() {
   const abort = new AbortController();
   const session = new EventTarget();
-  let ended = 0, cancelled = 0, loop, tracking, ready;
+  let ended = 0, cancelled = 0, loop, tracking, ready, kind, time = 0;
   const counts = { hits: 0, requests: 0, transforms: 0, placement: 0, renders: 0 };
   session.end = async () => { ended++; session.dispatchEvent(new Event('end')); };
   session.visibilityState = 'visible';
@@ -32,16 +32,16 @@ function fixture() {
   const options = {
     sessionPromise: Promise.resolve(session), signal: abort.signal, overlay: new EventTarget(),
     view: { getXRContext: () => ({ scene, renderer, camera: {} }), enterAR() {}, exitAR() {}, trackAR(matrix, visible) { tracking = visible; counts.transforms++; } },
-    onStatus() {}, onTracking() {}, onPlacement(value) { ready = value; counts.placement++; }, onFrame() {}, onEnd() {},
+    onStatus() {}, onTracking() {}, onPlacement(value, type) { ready = value; kind = type; counts.placement++; }, onFrame() {}, onEnd() {},
   };
   return { options, session, abort, scene, renderer, counts, get ended() { return ended; }, get cancelled() { return cancelled; },
-    get tracking() { return tracking; }, get ready() { return ready; },
-    frame(hit = true, visible = true) { loop(1, { getViewerPose: () => visible ? ({ transform: { position: new Vector3(0, 1, 1) } }) : null,
+    get tracking() { return tracking; }, get ready() { return ready; }, get kind() { return kind; },
+    frame(hit = true, visible = true, delta = 60) { time += delta; loop(time, { getViewerPose: () => visible ? ({ transform: { position: new Vector3(0, 1, 1), orientation: { x: 0, y: 0, z: 0, w: 1 } } }) : null,
       getHitTestResults: () => { counts.hits++; return hit ? [{ getPose: () => ({ transform: { position: new Vector3(), matrix: new Matrix4().elements } }) }] : []; } }); },
   };
 }
 
-test('surface placement requires a hit, supports resize and reposition, and cleans up', async () => {
+test('surface placement requires tracking, supports resize and reposition, and cleans up', async () => {
   const f = fixture();
   const ar = await startSurfaceSession(f.options);
   assert.equal(ar.place(), false);
@@ -113,7 +113,8 @@ test('reposition reacquires hit testing and cancels a source returned after exit
   let lateCancelled = 0;
   f.session.requestHitTestSource = () => new Promise(r => { resolve = r; });
   ar.reposition();
-  f.frame(); assert.equal(ar.place(), false);
+  f.frame(false); assert.equal(f.kind, 'manual');
+  assert.equal(ar.place(), true);
   await ar.stop();
   resolve({ cancel() { lateCancelled++; } });
   await new Promise(r => setImmediate(r));
@@ -127,5 +128,52 @@ test('reposition gets a fresh surface before placing again', async () => {
   f.frame(); assert.equal(ar.place(), true);
   assert.equal(f.counts.requests, 2);
   assert.equal(f.cancelled, 2);
+  await ar.stop();
+});
+
+
+test('brief missing hits keep the detected preview and allow the placement tap', async () => {
+  const f = fixture(); const ar = await startSurfaceSession(f.options);
+  f.frame();
+  f.frame(false);
+  assert.equal(f.kind, 'surface');
+  assert.equal(f.ready, true);
+  assert.equal(ar.place(), true);
+  await ar.stop();
+});
+
+test('missing and expired hits offer explicit manual placement, then upgrade on detection', async () => {
+  const f = fixture(); const ar = await startSurfaceSession(f.options);
+  f.frame(false);
+  assert.equal(f.kind, 'manual');
+  const guide = f.scene.children[0];
+  assert.ok(guide.visible);
+  assert.ok(Number.isFinite(guide.matrix.elements[12]));
+  f.frame();
+  assert.equal(f.kind, 'surface');
+  f.frame(false, true, 1600);
+  assert.equal(f.kind, 'manual');
+  assert.equal(ar.place(), true);
+  assert.equal(f.cancelled, 1);
+  await ar.stop();
+});
+
+test('unavailable hit testing still permits manual placement but never without tracking', async () => {
+  const f = fixture();
+  f.session.requestHitTestSource = async () => { throw new Error('Not supported'); };
+  const ar = await startSurfaceSession(f.options);
+  f.frame(false);
+  assert.equal(f.kind, 'manual');
+  f.frame(false, false);
+  assert.equal(ar.place(), false);
+  f.frame(false);
+  assert.equal(ar.place(), true);
+  await ar.stop();
+});
+
+test('surface queries are throttled while scanning', async () => {
+  const f = fixture(); const ar = await startSurfaceSession(f.options);
+  for (let i = 0; i < 60; i++) f.frame(true, true, 16);
+  assert.ok(f.counts.hits <= 20);
   await ar.stop();
 });

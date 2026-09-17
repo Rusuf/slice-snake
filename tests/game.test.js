@@ -112,3 +112,36 @@ test('a fresh run does not inherit score, queue, or segments from a previous run
   assert.deepEqual(next.queue, []);
   assert.notEqual(next.snake, first.snake);
 });
+
+
+test('endless wraps all four edges and continues playing', () => {
+  for (const [direction, start, expected] of [
+    ['right', { x: 15, y: 8 }, { x: 0, y: 8 }],
+    ['left', { x: 0, y: 8 }, { x: 15, y: 8 }],
+    ['up', { x: 8, y: 0 }, { x: 8, y: 15 }],
+    ['down', { x: 8, y: 15 }, { x: 8, y: 0 }],
+  ]) {
+    const game = { ...createGame(() => 0, 'endless'), status: 'playing', snake: [start], direction, food: null };
+    step(game);
+    assert.deepEqual(game.snake[0], expected);
+    assert.equal(game.status, 'playing');
+  }
+});
+
+test('endless collects food across the edge and still collides with its body', () => {
+  const game = { ...createGame(() => 0, 'endless'), status: 'playing', snake: [{ x: 15, y: 8 }, { x: 14, y: 8 }], food: { x: 0, y: 8 } };
+  step(game, () => 0);
+  assert.equal(game.score, 10);
+  assert.equal(game.snake.length, 3);
+  game.snake = [{ x: 15, y: 8 }, { x: 0, y: 8 }, { x: 1, y: 8 }];
+  game.food = null;
+  step(game);
+  assert.equal(game.status, 'over');
+});
+
+test('endless can enter the tail cell when it wraps and the tail vacates', () => {
+  const game = { ...createGame(() => 0, 'endless'), status: 'playing', snake: [{ x: 15, y: 8 }, { x: 0, y: 8 }], food: null };
+  step(game);
+  assert.equal(game.status, 'playing');
+  assert.deepEqual(game.snake[0], { x: 0, y: 8 });
+});

@@ -29,3 +29,10 @@ test('shared score challenges preserve level and reject invalid values', () => {
     assert.equal(readChallenge(query), null);
   }
 });
+
+
+test('endless challenges preserve the rules and reject unknown modes', () => {
+  const url = challengeURL('https://example.com/', 30, 140, 'endless');
+  assert.deepEqual(readChallenge(new URL(url).search), { score: 30, level: 140, mode: 'endless' });
+  assert.equal(readChallenge('?challenge=30&level=140&mode=unknown'), null);
+});

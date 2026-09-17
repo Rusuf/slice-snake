@@ -3,6 +3,7 @@
 /** @typedef {'ready' | 'playing' | 'paused' | 'over' | 'won'} Status */
 /**
  * @typedef {object} Game
+ * @property {'classic' | 'endless'} mode
  * @property {Cell[]} snake Head first; every segment occupies one grid cell.
  * @property {Direction} direction
  * @property {Direction[]} queue Accepted turns, consumed one per simulation tick.
@@ -36,10 +37,11 @@ export function spawnFood(snake, random = Math.random) {
 }
 
 /** @returns {Game} A fresh run, waiting for an explicit start. */
-export function createGame(random = Math.random) {
+export function createGame(random = Math.random, mode = 'classic') {
   const snake = [{ x: 6, y: 8 }, { x: 5, y: 8 }, { x: 4, y: 8 }];
 
   return {
+    mode: mode === 'endless' ? 'endless' : 'classic',
     snake,
     direction: 'right',
     queue: [],
@@ -72,6 +74,10 @@ export function step(game, random = Math.random) {
   game.direction = game.queue.shift() ?? game.direction;
   const [dx, dy] = DIRECTIONS[game.direction];
   const head = { x: game.snake[0].x + dx, y: game.snake[0].y + dy };
+  if (game.mode === 'endless') {
+    head.x = (head.x + SIZE) % SIZE;
+    head.y = (head.y + SIZE) % SIZE;
+  }
   const eats = game.food !== null && head.x === game.food.x && head.y === game.food.y;
   // The tail vacates its cell on a normal move, so moving into it is legal.
   const body = eats ? game.snake : game.snake.slice(0, -1);

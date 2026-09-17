@@ -1,4 +1,4 @@
-import { Matrix4, Vector3, BufferGeometry, LineLoop, LineBasicMaterial } from 'three';
+import { Matrix4, Vector3, Quaternion, BufferGeometry, LineLoop, LineBasicMaterial } from 'three';
 
 const BOARD_WIDTH = 18.4;
 const BOARD_SCALE = new Vector3();
@@ -28,6 +28,11 @@ export async function startSurfaceSession({ sessionPromise, view, overlay, signa
   let size = .24;
   let position = null;
   let lastHit = null;
+  let lastHitTime = -Infinity;
+  let lastQueryTime = -Infinity;
+  let placementKind = null;
+  const forward = new Vector3();
+  const orientation = new Quaternion();
   let baseSpace;
   const { renderer, scene, camera } = view.getXRContext();
   const outline = new BufferGeometry().setFromPoints([
@@ -44,8 +49,12 @@ export async function startSurfaceSession({ sessionPromise, view, overlay, signa
   function reportTracking(value) {
     if (tracked !== value) { tracked = value; onTracking(value); }
   }
-  function reportPlacement(value) {
-    if (canPlace !== value) { canPlace = value; onPlacement(value); }
+  function reportPlacement(value, kind = null) {
+    if (canPlace !== value || placementKind !== kind) {
+      canPlace = value;
+      placementKind = kind;
+      onPlacement(value, kind);
+    }
   }
   async function findSurface() {
     const request = ++hitRequest;
@@ -94,8 +103,10 @@ export async function startSurfaceSession({ sessionPromise, view, overlay, signa
     baseSpace = renderer.xr.getReferenceSpace();
     viewerSpace = await session.requestReferenceSpace('viewer');
     assertActive();
-    await findSurface();
-    assertActive();
+    // A slow or unavailable hit-test service must not block manual placement.
+    findSurface().catch(() => {
+      if (!stopped) onStatus('Surface detection unavailable · place the preview manually');
+    });
     overlay.addEventListener('beforexrselect', suppressSelection);
     initialized = true;
     onStatus('Point at a table or floor · move slowly');
@@ -112,20 +123,34 @@ export async function startSurfaceSession({ sessionPromise, view, overlay, signa
       } else {
         if (!placed) {
           viewer.copy(pose.transform.position);
-          lastHit = null;
-          for (const result of hitSource ? frame.getHitTestResults(hitSource) : []) {
-            const hit = result.getPose(baseSpace);
-            // Only accept a reasonably horizontal surface, not a nearby wall.
-            if (hit && hit.transform.matrix[5] > .9) { lastHit = hit; break; }
+          // Keep a recent result through short detection gaps, including the tap.
+          if (time - lastQueryTime >= 50) {
+            lastQueryTime = time;
+            for (const result of hitSource ? frame.getHitTestResults(hitSource) : []) {
+              const hit = result.getPose(baseSpace);
+              if (hit && hit.transform.matrix[5] > .9) {
+                lastHit = hit;
+                lastHitTime = time;
+                break;
+              }
+            }
           }
-          const ready = lastHit !== null;
-          reportPlacement(ready);
-          guide.visible = ready;
-          if (lastHit) {
+          const detected = lastHit && time - lastHitTime <= 1500;
+          if (detected) {
             center.copy(lastHit.transform.position);
-            surfaceBoardMatrix(center, viewer, size * BOARD_WIDTH, guide.matrix);
-            guide.matrixWorldNeedsUpdate = true;
+          } else {
+            // Explicit manual fallback: a level preview in front of the camera.
+            // This is an estimate, not a claim that a physical surface was found.
+            orientation.copy(pose.transform.orientation);
+            forward.set(0, 0, -1).applyQuaternion(orientation);
+            center.copy(viewer).addScaledVector(forward, .65);
+            center.y = Math.min(center.y, viewer.y - .2);
           }
+          guide.visible = true;
+          material.color.setHex(detected ? 0x19eb83 : 0xffc857);
+          surfaceBoardMatrix(center, viewer, size * BOARD_WIDTH, guide.matrix);
+          guide.matrixWorldNeedsUpdate = true;
+          reportPlacement(true, detected ? 'surface' : 'manual');
         } else if (!tracked) {
           view.trackAR(boardMatrix, true);
           reportTracking(true);
@@ -137,8 +162,8 @@ export async function startSurfaceSession({ sessionPromise, view, overlay, signa
     return {
       stop: end,
       place() {
-        if (stopped || !canPlace || !lastHit || placed) return false;
-        position = new Vector3().copy(lastHit.transform.position);
+        if (stopped || !canPlace || placed) return false;
+        position = center.clone();
         placementViewer.copy(viewer);
         placed = true;
         guide.visible = false;
@@ -165,11 +190,12 @@ export async function startSurfaceSession({ sessionPromise, view, overlay, signa
         placed = false;
         reportPlacement(false);
         lastHit = null;
+        lastHitTime = lastQueryTime = -Infinity;
         view.trackAR(null, false);
         reportTracking(false);
         onStatus('Find a flat surface for the square guide');
         findSurface().catch(() => {
-          if (!stopped) { onStatus('Surface scanning stopped. Exit AR and try again.'); end(); }
+          if (!stopped) onStatus('Surface detection unavailable · place the preview manually');
         });
       },
     };

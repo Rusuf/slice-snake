@@ -184,7 +184,9 @@ export function createScene(host, onContextLost) {
   function drawSnake(progress) {
     for (let index = 0; index < targetCells.length; index++) {
       const to = targetCells[index];
-      const from = sourceCells[index] ?? to;
+      const source = sourceCells[index] ?? to;
+      // Teleport at a wrapped edge instead of sliding across the whole board.
+      const from = Math.abs(source.x - to.x) > 1 || Math.abs(source.y - to.y) > 1 ? to : source;
       positions[index].set(
         THREE.MathUtils.lerp(from.x, to.x, progress) - CENTER,
         SNAKE_HEIGHT,
@@ -202,7 +204,9 @@ export function createScene(host, onContextLost) {
       midpoint.copy(current).add(previous).multiplyScalar(.5);
       midpoint.y -= .05;
       rotation.setFromAxisAngle(axis, Math.atan2(previous.x - current.x, previous.z - current.z));
-      scale.set(1, 1, current.distanceTo(previous));
+      const distance = current.distanceTo(previous);
+      // Segments on opposite edges must not form a connector across the board.
+      scale.set(1, 1, distance > 2 ? 0 : distance);
       joints.setMatrixAt(index - 1, matrix.compose(midpoint, rotation, scale));
     }
     body.instanceMatrix.needsUpdate = true;

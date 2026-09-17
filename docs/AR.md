@@ -2,7 +2,9 @@
 
 ## Place on a surface
 
-Requires Chrome on an ARCore-supported Android phone, Google Play Services for AR, and HTTPS. Choose **Play in AR** to open surface placement directly. Move slowly over a well-lit horizontal surface, align the square guide, then choose **Place & play** to place the board and start in one action. Scores and steering controls stay hidden while scanning. Pause to adjust the board width from 15–45 cm or choose **Reposition**, then place and resume. Board adjustments and level/player settings stay out of the camera view during play.
+Requires Chrome on an ARCore-supported Android phone, Google Play Services for AR, and HTTPS. Choose **Play in AR** to open placement directly. A green square marks a detected horizontal surface; choose **Place & play** to start. Short detection gaps retain the last surface for up to 1.5 seconds, and scanning queries are limited to 20 per second. If detection is slow or unavailable, an amber preview offers **Place manually & play** immediately while camera tracking is available. This is an estimated position in front of the phone, so it may float above the real surface; it is not a detected surface. Move the phone to aim before placing. Scores and steering controls stay hidden during placement. Pause to adjust board width from 15–45 cm or choose **Reposition**, then place and resume. Surface queries stop after either placement method.
+
+Enable **Endless mode** before starting a run to wrap across all four edges. Self-collisions still end the run, and filling the grid wins. The choice stays locked during a run and between the two players of a match. Endless has a separate personal best, and shared challenge links preserve its rules.
 
 A table, tile, or paper square works for the demo; no box is needed. The guide is manually aligned, not automatic square-edge recognition. Featureless white paper, glare, and dim lighting may make detection harder: include textured surroundings while scanning. The board stays at its placed location; it does not follow paper moved afterward.
 

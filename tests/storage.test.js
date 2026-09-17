@@ -29,3 +29,13 @@ test('scores round-trip under the same storage key', () => {
   writeBestScore(storage, 90);
   assert.equal(readBestScore(storage), 90);
 });
+
+
+test('endless scores are separate from existing classic scores', () => {
+  const values = new Map();
+  const storage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
+  writeBestScore(storage, 40);
+  writeBestScore(storage, 90, 'endless');
+  assert.equal(readBestScore(storage), 40);
+  assert.equal(readBestScore(storage, 'endless'), 90);
+});
