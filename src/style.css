@@ -301,3 +301,74 @@ html:has(body.surface-mode), body.surface-mode, body:xr-overlay { background: tr
 .ar-chooser { max-height: 90dvh; overflow-y: auto; }
 
 .ar-license { font-size: 11px; line-height: 1.4; }
+
+/* A small HUD shares the camera area instead of reserving a score panel above it. */
+.camera-mode .masthead { height: 44px; margin-inline: 3%; background: transparent; }
+.camera-mode .partner-logo { width: 34px; height: 28px; }
+.camera-mode .game-wordmark { font-size: 11px; }
+.camera-mode .game-wordmark small { display: none; }
+.camera-mode main { padding: 6px 3% 10px; }
+.camera-mode footer { display: none; }
+.camera-mode .arcade { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+.camera-mode .stage { grid-column: 1; grid-row: 1; }
+.camera-mode .control-panel { grid-column: 1; grid-row: 2; }
+.camera-mode .scorebar {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+  z-index: 4;
+  min-height: 44px;
+  margin: 8px;
+  padding: 0;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+.camera-mode .scorebar > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 7px 9px;
+  border-radius: 5px;
+  background: rgb(20 38 27 / 82%);
+  color: #fff8eb;
+}
+.camera-mode .scorebar .label { font-size: 8px; letter-spacing: .5px; color: #e1e8dd; }
+.camera-mode .scorebar strong { font-size: 19px; color: #fff8eb; }
+.camera-mode .scorebar .best { margin-left: 0; }
+.camera-mode .scorebar .best .label { max-width: 52px; line-height: 1.2; }
+.camera-mode .scorebar .icon-button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 5px;
+  color: #fff8eb;
+  background: rgb(20 38 27 / 82%);
+  pointer-events: auto;
+}
+.camera-mode #restart { margin-left: auto; }
+.camera-mode .ar-status {
+  top: 60px;
+  left: 12px;
+  right: 12px;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  margin-inline: auto;
+  padding: 5px 9px;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.camera-mode .arcade:has(.overlay[hidden]) .ar-status { opacity: 0; }
+.camera-mode .surface-tools { top: auto; bottom: 10px; }
+.camera-mode .stage:has(.overlay:not([hidden])) .surface-tools { bottom: auto; top: 102px; }
+@media (max-width: 360px) {
+  .camera-mode .scorebar { gap: 4px; margin-inline: 6px; }
+  .camera-mode .scorebar > div { gap: 4px; padding-inline: 6px; }
+  .camera-mode .scorebar .label { font-size: 7px; max-width: 38px; }
+  .camera-mode .scorebar strong { font-size: 17px; }
+}
+@media (max-height: 500px) and (min-width: 600px) {
+  .camera-mode .arcade { grid-template-columns: minmax(0, 1fr) 182px; grid-template-rows: minmax(0, 1fr); }
+  .camera-mode .control-panel { grid-column: 2; grid-row: 1; }
+}
